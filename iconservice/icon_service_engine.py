@@ -421,7 +421,6 @@ class IconServiceEngine(ContextContainer):
                                  timestamp=params.get('timestamp', context.block.timestamp),
                                  nonce=params.get('nonce', None))
 
-        context.msg = Message(sender=from_, value=params.get('value', 0))
         context.current_address = to
         context.event_logs: List['EventLog'] = []
         context.traces: List['Trace'] = []
@@ -429,6 +428,7 @@ class IconServiceEngine(ContextContainer):
         context.msg_stack.clear()
         context.event_log_stack.clear()
 
+        context.push_msg(Message(sender=from_, value=params.get('value', 0)))
         return self._call(context, method, params)
 
     def _estimate_step_by_request(self, request, context) -> int:

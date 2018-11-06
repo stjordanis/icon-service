@@ -130,11 +130,10 @@ class InternalCall(object):
         if len(context.msg_stack) == MAX_CALL_STACK_SIZE:
             raise InvalidRequestException('Max call stack size exceeded')
 
-        context.msg_stack.append(context.msg)
+        context.push_msg(Message(sender=addr_from, value=amount))
 
         prev_func_type = context.func_type
         context.current_address = addr_to
-        context.msg = Message(sender=addr_from, value=amount)
 
         try:
             icon_score = IconScoreContextUtil.get_icon_score(context, addr_to)
@@ -144,7 +143,7 @@ class InternalCall(object):
         finally:
             context.func_type = prev_func_type
             context.current_address = addr_from
-            context.msg = context.msg_stack.pop()
+            context.pop_msg()
 
     @staticmethod
     def emit_event_log_for_icx_transfer(context: 'IconScoreContext',

@@ -288,7 +288,7 @@ class IconScoreDeployEngine(object):
                     data=content,
                     tx_hash=next_tx_hash)
 
-        backup_msg = context.msg
+        backup_msg: 'Message' = context.msg
         backup_tx = context.tx
 
         try:

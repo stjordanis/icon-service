@@ -106,7 +106,6 @@ class IconScoreContext(object):
                  func_type: 'IconScoreFuncType' = IconScoreFuncType.WRITABLE,
                  block: 'Block' = None,
                  tx: 'Transaction' = None,
-                 msg: 'Message' = None,
                  block_batch: 'BlockBatch' = None,
                  tx_batch: 'TransactionBatch' = None,
                  new_icon_score_mapper: 'IconScoreMapper' = None) -> None:
@@ -116,7 +115,6 @@ class IconScoreContext(object):
         :param func_type: IconScoreFuncType (READONLY, WRITABLE)
         :param block:
         :param tx: initial transaction info
-        :param msg: message call info
         :param block_batch:
         :param tx_batch:
         """
@@ -125,7 +123,6 @@ class IconScoreContext(object):
         self.func_type: IconScoreFuncType = func_type
         self.block = block
         self.tx = tx
-        self.msg = msg
         self.current_address: 'Address' = None
         self.block_batch = block_batch
         self.tx_batch = tx_batch
@@ -143,12 +140,38 @@ class IconScoreContext(object):
         return self.type == IconScoreContextType.QUERY or \
                self.func_type == IconScoreFuncType.READONLY
 
+    @property
+    def msg(self) -> Optional['Message']:
+        """Return the latest message of msg_stack
+
+        :return: Message instance
+        """
+        if len(self.msg_stack) == 0:
+            return None
+        else:
+            return self.msg_stack[-1]
+
+    @msg.setter
+    def msg(self, value: 'Message'):
+        if len(self.msg_stack) > 0:
+            self.msg_stack[-1] = value
+        else:
+            self.msg_stack.append(value)
+
+    def push_msg(self, msg: 'Message'):
+        self.msg_stack.append(msg)
+
+    def pop_msg(self) -> 'Message':
+        if len(self.msg_stack) == 0:
+            return None
+        else:
+            return self.msg_stack.pop()
+
     def clear(self) -> None:
         """Set instance member variables to None
         """
         self.block = None
         self.tx = None
-        self.msg = None
         self.current_address: 'Address' = None
         self.block_batch = None
         self.tx_batch = None
