@@ -39,11 +39,11 @@ class TestIconScoreMapper(unittest.TestCase):
 
     def test_get_icon_score_score_success(self):
         tx_hash = create_tx_hash()
-        self.icon_score_mapper.load_score = Mock(return_value=TestScore())
+        self.icon_score_mapper.load_score = Mock(return_value=SampleScore())
         self.icon_score_mapper.get_icon_score(create_address(AddressPrefix.CONTRACT), tx_hash)
 
 
-class TestScore(IconScoreBase):
+class SampleScore(IconScoreBase):
 
     def __init__(self):
         pass
