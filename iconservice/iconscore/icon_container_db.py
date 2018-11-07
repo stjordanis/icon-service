@@ -15,7 +15,7 @@
 # limitations under the License.
 
 
-from collections import Iterator
+from collections.abc import Iterator
 from typing import TypeVar, Optional, Any, Union, TYPE_CHECKING
 
 from ..base.address import Address

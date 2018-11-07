@@ -606,7 +606,7 @@ class IconScoreBase(IconScoreObject, ContextGetter,
         :param amount: ICX value to enclose with. in loop.
         :return: returning value of the external function
         """
-        warnings.warn('Use create_interface_score() instead.', DeprecationWarning, stacklevel=2)
+        # warnings.warn('Use create_interface_score() instead.', DeprecationWarning, stacklevel=2)
         return InternalCall.other_external_call(self._context, self.address, addr_to, amount, func_name, (), kw_dict)
 
     def revert(self, message: Optional[str] = None,

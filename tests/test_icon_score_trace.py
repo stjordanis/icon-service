@@ -69,8 +69,8 @@ class TestTrace(unittest.TestCase):
         IconScoreContextUtil.validate_score_blacklist = Mock(return_value=False)
 
         context.icon_score_mapper = Mock()
-        context.icon_score_mapper.get_icon_score = Mock(return_value=TestScore(db))
-        self._score = TestScore(db)
+        context.icon_score_mapper.get_icon_score = Mock(return_value=SampleScore(db))
+        self._score = SampleScore(db)
 
     def tearDown(self):
         ContextContainer._clear_context()
@@ -239,12 +239,12 @@ class TestTrace(unittest.TestCase):
         self.assertEqual(4, len(camel_dict['data']))
 
 
-class TestInterfaceScore(InterfaceScore):
+class SampleInterfaceScore(InterfaceScore):
     @interface
     def interfaceCall(self, addr_to: Address, value: int) -> bool: pass
 
 
-class TestScore(IconScoreBase):
+class SampleScore(IconScoreBase):
 
     def __init__(self, db: 'IconScoreDatabase') -> None:
         super().__init__(db)
@@ -259,5 +259,5 @@ class TestScore(IconScoreBase):
     def test_interface_call(self,
                             score_address: Address, to_: Address, amount: int):
         test_interface_score = self.create_interface_score(
-            score_address, TestInterfaceScore)
+            score_address, SampleInterfaceScore)
         test_interface_score.interfaceCall(to_, amount)
