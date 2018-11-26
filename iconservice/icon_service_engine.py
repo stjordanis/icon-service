@@ -33,7 +33,7 @@ from .deploy.icon_builtin_score_loader import IconBuiltinScoreLoader
 from .deploy.icon_score_deploy_engine import IconScoreDeployEngine
 from .deploy.icon_score_deploy_storage import IconScoreDeployStorage
 from .icon_constant import ICON_DEX_DB_NAME, ICON_SERVICE_LOG_TAG, IconServiceFlag, ConfigKey, \
-    REVISION_3
+    REVISION_4
 from .iconscore.icon_pre_validator import IconPreValidator
 from .iconscore.icon_score_context import IconScoreContext, IconScoreFuncType, ContextContainer
 from .iconscore.icon_score_context import IconScoreContextType
@@ -856,7 +856,7 @@ class IconServiceEngine(ContextContainer):
     def _get_dict_size_in_bytes(self, revision: int, data: 'dict') -> int:
         size = 0
         for k, v in data.items():
-            if revision >= REVISION_3:
+            if revision >= REVISION_4:
                 # Revision 3 or after, counts keys of dict also
                 size += len(k.encode('utf-8'))
             size += self._get_data_size_in_bytes(revision, v)
@@ -866,7 +866,7 @@ class IconServiceEngine(ContextContainer):
     def _get_string_size_in_bytes(revision: int, data: 'str') -> int:
         # If the value is a hex-string, it is calculated as bytes otherwise
         # UTF-8 string
-        if revision >= REVISION_3:
+        if revision >= REVISION_4:
             # Revision 3 or after, Hex prefix can be '0x' or '-0x'
             index_of_hex_body = 2 if data[:2] == '0x' else 3 if data[:3] == '-0x' else -1
         else:
