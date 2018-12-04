@@ -357,37 +357,124 @@ channel_manage_data.json  genesis.json
 {"jsonrpc": "2.0", "result": "0x296f3c1a8737310c8800000", "id": 1}
 ```
 
-Example: bash script for a peer execution
-```bash
-#!/bin/bash -x
-  
-set -e
+#### Examples: Configuration Files
 
-if [ $# -ne 2 ]; then
-    printf "[Usage] $0 <start or stop> <Peer Number>\nex) $0 start 0\nex) $0 stop 0\n"
-    exit 1
-fi
+The sample configuration files can be downloaded from the url below:
+https://www.example.com/config.tar.gz (TBD)
 
-# Replace "test" with your password.
-export PW_icon_dex="test"
+##### test_0_conf.json
 
-COMMAND=$1
-I=$2
+* Configuration File for Peer
+* public_path, private_path, PORT_PEER and AMQP_KEY should be different from other nodes.
+    - public_path: "peer1-public.pem", "peer2-public.pem", ...
+    - private_path: "peer1-private.pem", "peer2-private.pem", ...
+    - PORT_PEER: 7200, 7300, ...
+    - AMQP_KEY: "peer1", "peer2", ...
+* Every component which consists of a node should use the same amqpKey.
 
-echo "#### [ $I ] ####"
-IS_CONF_FILE="./conf/is_conf_$I.json"
-PEER_CONF_FILE="./conf/peer_conf_$I.json"
-IRPC_CONF_FILE="./conf/irpc_conf_$I.json"
+```json
+{
+  "LOOPCHAIN_DEFAULT_CHANNEL": "icon_dex",
+  "CHANNEL_OPTION" : {
+    "icon_dex": {
+      "store_valid_transaction_only": true,
+      "send_tx_type": 2,
+      "load_cert": false,
+      "consensus_cert_use": false,
+      "tx_cert_use": false,
+      "tx_hash_version": 1,
+      "genesis_tx_hash_version": 0,
+      "key_load_type": 0,
+      "public_path": "./resources/my_pki/peer0-public.pem",
+      "private_path": "./resources/my_pki/peer0-private.pem",
+      "genesis_data_path": "./genesis.json"
+    }
+  },
+  "USE_EXTERNAL_SCORE": true,
+  "USE_EXTERNAL_REST": true,
+  "PORT_PEER": 7100,
+  "AMQP_KEY": "peer0",
+  "DEFAULT_STORAGE_PATH": ".storage_test/",
+  "ALLOW_MAKE_EMPTY_BLOCK": false,
+  "SUBSCRIBE_USE_HTTPS": true,
+  "LOOPCHAIN_LOG_LEVEL": "INFO"
+}
 
-iconservice $COMMAND -c "$IS_CONF_FILE"
-sleep 2
+```
 
-iconrpcserver $COMMAND -c "$IRPC_CONF_FILE"
-sleep 2
+##### iconservice_0_config.json
 
-if [ $COMMAND == "start" ]; then
-    ./loopchain.py peer -d -r 127.0.0.1:7102 -o "$PEER_CONF_FILE"
-fi
+* Configuration File for ICON Service
+* log.filePath, scoreRootPath, stateDbRootPath and amqpKey should be different from other nodes.
+    - log.filePath: "./log/1/iconservice.log", "./log/2/iconservice.log", ...
+    - scoreRootPath: "./storage_test/.score1", "./storage_test/.score2", ...
+    - stateDbRootPath: "./storage_test/.statedb1", "./storage_test/.statedb2", ...
+    - amqpKey: "peer1", "peer2", ...
+* Every component which consists of a node should use the same channel name and amqpKey.
+
+```json
+{
+  "log": {
+    "logger": "iconservice",
+    "colorLog": true,
+    "level": "info",
+    "filePath": "./log/0/iconservice.log",
+    "outputType": "console|file",
+    "rotate": {
+      "type": "period|bytes",
+      "period": "daily",
+      "interval": 1,
+      "backupCount": 10,
+      "maxBytes": 50000000
+    }
+  },
+  "scoreRootPath": ".storage_test/.score0",
+  "stateDbRootPath": ".storage_test/.statedb0",
+  "channel": "icon_dex",
+  "amqpKey": "peer0",
+  "amqpTarget": "127.0.0.1",
+  "builtinScoreOwner": "hx6e1dd0d4432620778b54b2bbc21ac3df961adf89",
+  "service": {
+    "fee": false,
+    "audit": false,
+    "deployerWhiteList": false,
+    "scorePackageValidator": false
+  }
+}
+```
+
+##### iconrpcserver_0_config.json
+
+* Configuration File for ICON RPC Server
+* log.filePath, port, amqpKey should be different from other nodes.
+    - log.filePath: "./log/1/iconrpcserver.log", "./log/2/iconrpcserver.log", ...
+    - port: 9100, 9200, ...
+    - amqpKey: "peer1", "peer2", ...
+* Every component which consists of a node should use the same channel name and amqpKey.
+
+```json
+{
+  "log": {
+    "logger": "iconrpcserver",
+    "colorLog": true,
+    "level": "warning",
+    "filePath": "./log/0/iconrpcserver.log",
+    "outputType": "console|file",
+    "rotate": {
+      "type": "period|bytes",
+      "period": "daily",
+      "interval": 1,
+      "backupCount": 10,
+      "maxBytes": 50000000
+    }
+  },
+  "channel": "icon_dex",
+  "port": 9000,
+  "amqpTarget": "127.0.0.1",
+  "amqpKey": "peer0",
+  "gunicornWorkerCount": 1,
+  "subscribeUseHttps": true
+}
 ```
 
 ## Configuration Files
