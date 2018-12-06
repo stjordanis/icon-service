@@ -90,7 +90,7 @@ class IconPreValidator:
 
         if not isinstance(data, str) or \
                 data[:2] != '0x' or \
-                not is_lowercase_hex_string(data[2:]):
+                (not is_lowercase_hex_string(data[2:]) and len(data) % 2 == 0)
             raise InvalidRequestException(
                 'The message data should be a lowercase hex string')
 
