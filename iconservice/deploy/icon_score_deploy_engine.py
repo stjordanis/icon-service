@@ -19,6 +19,7 @@ from time import time
 from typing import TYPE_CHECKING, Callable
 
 from iconcommons import Logger
+
 from . import DeployType
 from .icon_score_deploy_storage import IconScoreDeployStorage
 from .icon_score_deployer import IconScoreDeployer
@@ -67,14 +68,14 @@ class IconScoreDeployEngine(object):
                to: 'Address',
                icon_score_address: 'Address',
                data: dict) -> None:
-        """Handle calldata contained in icx_sendTransaction message
+        """Handle data contained in icx_sendTransaction message
 
         :param context:
         :param to:
         :param icon_score_address:
             cx0000000000000000000000000000000000000000 on install
             otherwise score address to update
-        :param data: calldata
+        :param data: SCORE deploy data
         """
         assert icon_score_address is not None
         assert icon_score_address != ZERO_SCORE_ADDRESS
@@ -127,8 +128,9 @@ class IconScoreDeployEngine(object):
 
         tx_params = IconScoreContextUtil.get_deploy_tx_params(context, tx_hash)
         if tx_params is None:
-            raise InvalidParamsException(f'tx_params is None : {tx_hash}')
-        score_address = tx_params.score_address
+            raise InvalidParamsException(f'tx_params is None: 0x{tx_hash.hex()}')
+
+        score_address: 'Address' = tx_params.score_address
         self._score_deploy(context, tx_params)
         self._icon_score_deploy_storage.update_score_info(context, score_address, tx_hash)
 
@@ -148,7 +150,7 @@ class IconScoreDeployEngine(object):
 
         if content_type == 'application/tbears':
             if not context.legacy_tbears_mode:
-                raise InvalidParamsException(f"can't symlink deploy")
+                raise InvalidParamsException(f'Invalid contentType: application/tbears')
         elif content_type == 'application/zip':
             data['content'] = bytes.fromhex(data['content'][2:])
         else:
@@ -247,46 +249,21 @@ class IconScoreDeployEngine(object):
         content: bytes = data.get('content')
         params: dict = data.get('params', {})
 
-        deploy_info = IconScoreContextUtil.get_deploy_info(context, tx_params.score_address)
+        deploy_info: 'IconScoreDeployInfo' =\
+            self.icon_deploy_storage.get_deploy_info(context, tx_params.score_address)
         if deploy_info is None:
             next_tx_hash = None
         else:
-            next_tx_hash = deploy_info.next_tx_hash
+            next_tx_hash: bytes = deploy_info.next_tx_hash
+
         if next_tx_hash is None:
+            # next_tx_hash is 0x0000...
             next_tx_hash = bytes(DEFAULT_BYTE_SIZE)
 
         if content_type == 'application/tbears':
-            score_root_path = IconScoreContextUtil.get_score_root_path(context)
-            target_path = path.join(score_root_path,
-                                    score_address.to_bytes().hex())
-            makedirs(target_path, exist_ok=True)
-            converted_tx_hash: str = f'0x{bytes.hex(next_tx_hash)}'
-            target_path = path.join(target_path, converted_tx_hash)
-            try:
-                symlink(content, target_path, target_is_directory=True)
-            except FileExistsError:
-                pass
+            self._deploy_score_on_tbears_mode(context, score_address, next_tx_hash, content)
         else:
-            revision = IconScoreContextUtil.get_revision(context)
-
-            if revision >= REVISION_3:
-                install_path = DirectoryNameChanger.get_score_path_by_address_and_tx_hash(
-                    self._icon_score_deployer.score_root_path, score_address, next_tx_hash)
-                DirectoryNameChanger.rename_directory(install_path)
-                self._icon_score_deployer.deploy(
-                    address=score_address,
-                    data=content,
-                    tx_hash=next_tx_hash)
-            elif revision == REVISION_2:
-                self._icon_score_deployer.deploy(
-                    address=score_address,
-                    data=content,
-                    tx_hash=next_tx_hash)
-            else:
-                self._icon_score_deployer.deploy_legacy(
-                    address=score_address,
-                    data=content,
-                    tx_hash=next_tx_hash)
+            self._deploy_score(context, score_address, next_tx_hash, content)
 
         backup_msg = context.msg
         backup_tx = context.tx
@@ -294,9 +271,12 @@ class IconScoreDeployEngine(object):
         try:
             if IconScoreContextUtil.is_service_flag_on(context, IconServiceFlag.SCORE_PACKAGE_VALIDATOR):
                 IconScoreContextUtil.try_score_package_validate(context, score_address, next_tx_hash)
-            score = IconScoreContextUtil.load_score(context, score_address, next_tx_hash)
+
+            score: 'IconScoreBase' =\
+                context.new_icon_score_mapper.get_icon_score(score_address, next_tx_hash)
             if score is None:
-                raise InvalidParamsException(f'score is None : {score_address}')
+                raise InvalidParamsException(
+                    f'SCORE load failure: address({score_address}) txHash({next_tx_hash.hex()})')
 
             deploy_type = tx_params.deploy_type
             if deploy_type == DeployType.INSTALL:
@@ -318,7 +298,43 @@ class IconScoreDeployEngine(object):
             context.msg = backup_msg
             context.tx = backup_tx
 
-        IconScoreContextUtil.put_score_info(context, score_address, score, next_tx_hash)
+        return context.new_icon_score_mapper.put_score_info(score_address, score, next_tx_hash)
+
+    def _deploy_score_on_tbears_mode(self, context: 'IconScoreContext',
+                                     score_address: 'Address', tx_hash: bytes, content: bytes):
+        score_root_path = IconScoreContextUtil.get_score_root_path(context)
+        target_path = path.join(score_root_path, score_address.to_bytes().hex())
+        makedirs(target_path, exist_ok=True)
+
+        target_path: str = path.join(target_path, f'0x{tx_hash.hex()}')
+        try:
+            symlink(content, target_path, target_is_directory=True)
+        except FileExistsError:
+            pass
+
+    def _deploy_score(self, context: 'IconScoreContext',
+                      score_address: 'Address', tx_hash: bytes, content: bytes):
+        """Write SCORE code to file system
+        
+        :param context: IconScoreContext instance
+        :param score_address: score address
+        :param tx_hash: transaction hash
+        :param content: zipped SCORE code data
+        :return: 
+        """
+        revision: int = IconScoreContextUtil.get_revision(context)
+
+        if revision >= REVISION_2:
+            if revision >= REVISION_3:
+                install_path: str = DirectoryNameChanger.get_score_path_by_address_and_tx_hash(
+                    self._icon_score_deployer.score_root_path, score_address, tx_hash)
+                DirectoryNameChanger.rename_directory(install_path)
+
+            deploy_method: callable = self._icon_score_deployer.deploy
+        else:
+            deploy_method: callable = self._icon_score_deployer.deploy_legacy
+
+        deploy_method(address=score_address, data=content, tx_hash=tx_hash)
 
     @staticmethod
     def _initialize_score(on_deploy: Callable[[dict], None],

@@ -17,6 +17,7 @@
 from .icon_score_base import IconScoreBase
 from ..base.address import Address
 from ..base.exception import InvalidParamsException
+from ..database.db import IconScoreDatabase
 
 
 class IconScoreInfo(object):
@@ -25,26 +26,26 @@ class IconScoreInfo(object):
     If this class is not necessary anymore, Remove it
     """
 
-    def __init__(self, icon_score: 'IconScoreBase', tx_hash: bytes) -> None:
+    def __init__(self, score_class: type, score_db: 'IconScoreDatabase', tx_hash: bytes) -> None:
         """Constructor
 
         :param icon_score: icon score object
         """
-        self._check_icon_score(icon_score)
-        self._icon_score = icon_score
         self._tx_hash = tx_hash
-
-    @property
-    def icon_score(self) -> 'IconScoreBase':
-        """Returns IconScoreBase object
-
-        If IconScoreBase object is None, Create it here.
-        """
-        return self._icon_score
+        self._score_class = score_class
+        self._score_db = score_db
 
     @property
     def tx_hash(self) -> bytes:
         return self._tx_hash
+
+    @property
+    def score_class(self) -> type:
+        return self._score_class
+
+    @property
+    def score_db(self) -> 'IconScoreDatabase':
+        return self._score_db
 
     @staticmethod
     def _check_icon_score(icon_score: 'IconScoreBase') -> None:

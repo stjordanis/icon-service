@@ -33,7 +33,7 @@ from iconservice.deploy.icon_score_deployer import IconScoreDeployer
 from iconservice.iconscore.icon_score_context import IconScoreContext
 from iconservice.iconscore.icon_score_context import IconScoreContextType
 from iconservice.iconscore.icon_score_engine import IconScoreEngine
-from iconservice.iconscore.icon_score_loader import IconScoreLoader
+from iconservice.iconscore.icon_score_class_loader import IconScoreClassLoader
 from iconservice.iconscore.icon_score_mapper import IconScoreMapper
 from iconservice.icx.icx_storage import IcxStorage
 from tests import create_tx_hash, create_block_hash
@@ -68,9 +68,9 @@ class TestIconScoreEngine(unittest.TestCase):
         deploy_engine = IconScoreDeployEngine()
         deploy_engine.open(self._ROOT_SCORE_PATH, deploy_storage)
 
-        self.icon_score_loader = IconScoreLoader(self._ROOT_SCORE_PATH)
+        self.icon_score_loader = IconScoreClassLoader(self._ROOT_SCORE_PATH)
 
-        IconScoreMapper.icon_score_loader = self.icon_score_loader
+        IconScoreMapper.icon_score_class_loader = self.icon_score_loader
         IconScoreMapper.deploy_storage = deploy_storage
         self.icon_score_mapper = IconScoreMapper()
 

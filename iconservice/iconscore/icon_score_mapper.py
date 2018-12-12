@@ -32,7 +32,7 @@ from ..icon_constant import DEFAULT_BYTE_SIZE
 
 if TYPE_CHECKING:
     from .icon_score_base import IconScoreBase
-    from .icon_score_loader import IconScoreLoader
+    from .icon_score_class_loader import IconScoreClassLoader
 
 
 class IconScoreMapper(object):
@@ -44,7 +44,7 @@ class IconScoreMapper(object):
     value: IconScoreInfo
     """
 
-    icon_score_loader: 'IconScoreLoader' = None
+    icon_score_class_loader: 'IconScoreClassLoader' = None
     deploy_storage: 'IconScoreDeployStorage' = None
 
     def __init__(self, is_lock: bool = False) -> None:
@@ -61,14 +61,14 @@ class IconScoreMapper(object):
         else:
             return address in self._score_mapper
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: 'Address', value: 'IconScoreInfo'):
         if self._is_lock:
             with self._lock:
                 self._score_mapper[key] = value
         else:
             self._score_mapper[key] = value
 
-    def get(self, key):
+    def get(self, key: 'Address') -> 'IconScoreInfo':
         if self._is_lock:
             with self._lock:
                 return self._score_mapper.get(key)
@@ -88,7 +88,7 @@ class IconScoreMapper(object):
 
     @property
     def score_root_path(self) -> str:
-        return self.icon_score_loader.score_root_path
+        return self.icon_score_class_loader.score_root_path
 
     def get_icon_score(self, address: 'Address', tx_hash: bytes) -> Optional['IconScoreBase']:
         """
@@ -111,9 +111,9 @@ class IconScoreMapper(object):
         return score
 
     def try_score_package_validate(self, address: 'Address', tx_hash: bytes):
-        score_path = self.icon_score_loader.make_score_path(address, tx_hash)
+        score_path = self.icon_score_class_loader.make_score_path(address, tx_hash)
         whitelist_table = self._get_score_package_validator_table()
-        self.icon_score_loader.try_score_package_validate(whitelist_table, score_path)
+        self.icon_score_class_loader.try_score_package_validate(whitelist_table, score_path)
 
     def _get_score_package_validator_table(self) -> dict:
         governance_info = self.get(GOVERNANCE_SCORE_ADDRESS)
@@ -127,16 +127,13 @@ class IconScoreMapper(object):
             return {"iconservice": ['*']}
 
     def load_score(self, address: 'Address', tx_hash: bytes) -> Optional['IconScoreBase']:
-        score_wrapper = self._load_score_wrapper(address, tx_hash)
-        score_db = self._create_icon_score_database(address)
-        score = score_wrapper(score_db)
+        score_class: type = self._load_score_class(address, tx_hash)
+        score_db: 'IconScoreDatabase' = self._create_icon_score_database(address)
+        score: 'IconScoreBase' = score_class(score_db)
         return score
 
-    def put_score_info(self,
-                       address: 'Address',
-                       icon_score: 'IconScoreBase',
-                       tx_hash: bytes) -> None:
-        self[address] = IconScoreInfo(icon_score, tx_hash)
+    def put_score_info(self, score_class: type, db: 'IconScoreDatabase', tx_hash: bytes):
+        self[db.address] = IconScoreInfo(score_class, db, tx_hash)
 
     @staticmethod
     def _create_icon_score_database(address: 'Address') -> 'IconScoreDatabase':
@@ -150,23 +147,25 @@ class IconScoreMapper(object):
         score_db = IconScoreDatabase(address, context_db)
         return score_db
 
-    def _load_score_wrapper(self, address: 'Address', tx_hash: bytes) -> callable:
+    def _load_score_class(self, address: 'Address', tx_hash: bytes) -> callable:
         """Load IconScoreBase subclass from IconScore python package
 
         :param address: icon_score_address
         :return: IconScoreBase subclass (NOT instance)
         """
-        score_path = self.icon_score_loader.make_score_path(address, tx_hash)
-        score_wrapper = self.icon_score_loader.load_score(score_path)
-        if score_wrapper is None:
-            raise InvalidParamsException(f'score_wrapper load Fail {address}')
-        return score_wrapper
+        score_path: str = self.icon_score_class_loader.make_score_path(address, tx_hash)
+        score_class: type = self.icon_score_class_loader.run(score_path)
+        if score_class is None:
+            raise InvalidParamsException(
+                f'SCORE load failure: address({address}) txHash({tx_hash.hex()})')
+
+        return score_class
 
     def clear_garbage_score(self):
-        if self.icon_score_loader is None:
+        if self.icon_score_class_loader is None:
             return
 
-        score_root_path = self.icon_score_loader.score_root_path
+        score_root_path = self.icon_score_class_loader.score_root_path
         try:
             dir_list = os.listdir(score_root_path)
         except:
@@ -203,9 +202,9 @@ class IconScoreMapper(object):
 
     @classmethod
     def _remove_score_dir(cls, address: 'Address', converted_tx_hash: Optional[str] = None):
-        if cls.icon_score_loader is None:
+        if cls.icon_score_class_loader is None:
             return
-        score_root_path = cls.icon_score_loader.score_root_path
+        score_root_path = cls.icon_score_class_loader.score_root_path
 
         if converted_tx_hash is None:
             target_path = os.path.join(score_root_path, bytes.hex(address.to_bytes()))

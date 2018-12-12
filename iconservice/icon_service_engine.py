@@ -39,7 +39,7 @@ from .iconscore.icon_score_context import IconScoreContextType
 from .iconscore.icon_score_context_util import IconScoreContextUtil
 from .iconscore.icon_score_engine import IconScoreEngine
 from .iconscore.icon_score_event_log import EventLogEmitter
-from .iconscore.icon_score_loader import IconScoreLoader
+from .iconscore.icon_score_class_loader import IconScoreClassLoader
 from .iconscore.icon_score_mapper import IconScoreMapper
 from .iconscore.icon_score_result import TransactionResult
 from .iconscore.icon_score_step import IconScoreStepCounterFactory, StepType
@@ -118,7 +118,7 @@ class IconServiceEngine(ContextContainer):
         self._icx_storage = IcxStorage(self._icx_context_db)
         icon_score_deploy_storage = IconScoreDeployStorage(self._icx_context_db)
 
-        IconScoreMapper.icon_score_loader = IconScoreLoader(score_root_path)
+        IconScoreMapper.icon_score_class_loader = IconScoreClassLoader(score_root_path)
         IconScoreMapper.deploy_storage = icon_score_deploy_storage
         self._icon_score_mapper = IconScoreMapper(is_lock=True)
 

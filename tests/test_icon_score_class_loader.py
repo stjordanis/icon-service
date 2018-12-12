@@ -24,18 +24,18 @@ from iconservice.iconscore.icon_score_base import IconScoreBase
 from iconservice.iconscore.icon_score_context import ContextContainer, \
     IconScoreContextType
 from iconservice.iconscore.icon_score_context import IconScoreContext
-from iconservice.iconscore.icon_score_loader import IconScoreLoader
+from iconservice.iconscore.icon_score_class_loader import IconScoreClassLoader
 from tests import create_address, create_tx_hash, rmtree
 
 TEST_ROOT_PATH = path.abspath(path.join(path.dirname(__file__), '../'))
 
 
-class TestIconScoreLoader(unittest.TestCase):
+class TestIconScoreClassLoader(unittest.TestCase):
     _ROOT_SCORE_PATH = '.score'
 
     def setUp(self):
         self._score_path = self._ROOT_SCORE_PATH
-        self._loader = IconScoreLoader(self._score_path)
+        self._loader = IconScoreClassLoader(self._score_path)
 
         IconScoreContext.icon_score_deploy_engine = Mock()
         self._context = IconScoreContext(IconScoreContextType.DIRECT)
@@ -61,7 +61,7 @@ class TestIconScoreLoader(unittest.TestCase):
         ref_path = path.join(TEST_ROOT_PATH, 'tests/sample/{}'.format(proj))
         symlink(ref_path, target_path, target_is_directory=True)
         score_path = self._loader.make_score_path(addr_score, tx_hash)
-        return self._loader.load_score(score_path)
+        return self._loader.run(score_path)
 
     def test_install(self):
         self.__ensure_dir(self._score_path)
@@ -83,12 +83,13 @@ class TestIconScoreLoader(unittest.TestCase):
         score_path = f'{score_root_path}/{address}/{tx_hash}'
         expected_import_name: str = f'{address}.{tx_hash}'
 
-        loader = IconScoreLoader(score_root_path)
-        import_name: str = loader._make_pkg_root_import(score_path)
+        loader = IconScoreClassLoader(score_root_path)
+        import_name: str = loader._convert_path_to_package_name(score_path)
         self.assertEqual(import_name, expected_import_name)
 
         score_root_path = '/haha/hoho/hehe/score/'
         score_path = f'{score_root_path}/{address}/{tx_hash}'
-        loader = IconScoreLoader(score_root_path)
-        import_name: str = loader._make_pkg_root_import(score_path)
+        loader = IconScoreClassLoader(score_root_path)
+        import_name: str = loader._convert_path_to_package_name(score_path)
         self.assertEqual(import_name, expected_import_name)
+

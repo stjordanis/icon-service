@@ -19,8 +19,8 @@
 from typing import TYPE_CHECKING, Any
 
 from .icon_score_constant import STR_FALLBACK
-from .icon_score_context_util import IconScoreContextUtil
 from .icon_score_context import IconScoreContext
+from .icon_score_context_util import IconScoreContextUtil
 from ..base.address import Address, ZERO_SCORE_ADDRESS
 from ..base.exception import InvalidParamsException, ServerErrorException
 from ..base.type_converter import TypeConverter

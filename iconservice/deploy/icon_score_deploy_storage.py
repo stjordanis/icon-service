@@ -98,14 +98,15 @@ class IconScoreDeployTXParams(object):
         """
 
         # for extendability
-        json_str_deploy_data = json.dumps(self._deploy_data)
-        deploy_data_length = len(json_str_deploy_data.encode())
+        json_str_deploy_data: str = json.dumps(self._deploy_data)
+        deploy_data: bytes = json_str_deploy_data.encode(encoding='utf-8')
+        deploy_data_length: int = len(deploy_data)
 
         bytes_var1 = pack(
             IconScoreDeployTXParams._STRUCT_FMT,
             self._VERSION, self._deploy_type.value, deploy_data_length,
             self._score_address.to_bytes(), self._tx_hash)
-        bytes_var2 = pack(f'>{deploy_data_length}s', json_str_deploy_data.encode())
+        bytes_var2 = pack(f'>{deploy_data_length}s', deploy_data)
 
         return bytes_var1 + bytes_var2
 
@@ -297,12 +298,12 @@ class IconScoreDeployStorage(object):
     def get_deploy_info(self, context: Optional['IconScoreContext'], score_addr: 'Address') \
             -> Optional['IconScoreDeployInfo']:
 
-        bytes_value = self._db.get(context, self._create_db_key(
+        data: bytes = self._db.get(context, self._create_db_key(
             self._DEPLOY_STORAGE_DEPLOY_INFO_PREFIX, score_addr.to_bytes()))
-        if bytes_value:
-            return IconScoreDeployInfo.from_bytes(bytes_value)
-        else:
+        if data is None:
             return None
+
+        return IconScoreDeployInfo.from_bytes(data)
 
     def _put_deploy_tx_params(self, context: 'IconScoreContext', deploy_tx_params: 'IconScoreDeployTXParams') -> None:
         """
