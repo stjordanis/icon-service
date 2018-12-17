@@ -47,12 +47,14 @@ class IconScoreMapper(object):
     icon_score_class_loader: 'IconScoreClassLoader' = None
     deploy_storage: 'IconScoreDeployStorage' = None
 
-    def __init__(self, is_lock: bool = False) -> None:
+    def __init__(self, is_lock: bool = False, is_new: bool = False) -> None:
         """Constructor
         """
         self._score_mapper = IconScoreMapperObject()
         self._lock = Lock()
         self._is_lock = is_lock
+        # Is this a icon_score_new_mapper?
+        self._is_new = is_new
 
     def __contains__(self, address: 'Address'):
         if self._is_lock:
@@ -126,32 +128,38 @@ class IconScoreMapper(object):
         else:
             return {"iconservice": ['*']}
 
-    def load_score(self, address: 'Address', tx_hash: bytes) -> Optional['IconScoreBase']:
-        score_class: type = self._load_score_class(address, tx_hash)
-        score_db: 'IconScoreDatabase' = self._create_icon_score_database(address)
-        score: 'IconScoreBase' = score_class(score_db)
-        return score
+    def load_score_class(self, address: 'Address', tx_hash: bytes) -> Optional['IconScoreBase']:
+        """Load a deployed score package from the path indicated by address and tx_hash
 
-    def put_score_info(self, score_class: type, db: 'IconScoreDatabase', tx_hash: bytes):
-        self[db.address] = IconScoreInfo(score_class, db, tx_hash)
+        :param address:
+        :param tx_hash:
+        """
+        score_class: type = self._load_score_class(address, tx_hash)
+
+        score_info: 'IconScoreInfo' = self.get(address)
+        if score_info is None:
+            score_db: 'IconScoreDatabase' = self._create_score_database(address)
+        else:
+            score_db: 'IconScoreDatabase' = score_info.score_db
+
+        # Cache a new IconScoreInfo instance
+        self[address] = IconScoreInfo(score_class, score_db, tx_hash)
 
     @staticmethod
-    def _create_icon_score_database(address: 'Address') -> 'IconScoreDatabase':
+    def _create_score_database(address: 'Address') -> 'IconScoreDatabase':
         """Create IconScoreDatabase instance
         with icon_score_address and ContextDatabase
 
         :param address: icon_score_address
         """
-
         context_db = ContextDatabaseFactory.create_by_address(address)
-        score_db = IconScoreDatabase(address, context_db)
-        return score_db
+        return IconScoreDatabase(address, context_db)
 
-    def _load_score_class(self, address: 'Address', tx_hash: bytes) -> callable:
+    def _load_score_class(self, address: 'Address', tx_hash: bytes) -> type:
         """Load IconScoreBase subclass from IconScore python package
 
         :param address: icon_score_address
-        :return: IconScoreBase subclass (NOT instance)
+        :return: IconScoreBase subclass (class object)
         """
         score_path: str = self.icon_score_class_loader.make_score_path(address, tx_hash)
         score_class: type = self.icon_score_class_loader.run(score_path)
