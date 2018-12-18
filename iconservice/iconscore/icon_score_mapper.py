@@ -92,6 +92,7 @@ class IconScoreMapper(object):
     def score_root_path(self) -> str:
         return self.icon_score_class_loader.score_root_path
 
+    '''
     def get_icon_score(self, address: 'Address', tx_hash: bytes) -> Optional['IconScoreBase']:
         """
         :param address:
@@ -111,6 +112,7 @@ class IconScoreMapper(object):
             score = icon_score_info.icon_score
 
         return score
+    '''
 
     def try_score_package_validate(self, address: 'Address', tx_hash: bytes):
         score_path = self.icon_score_class_loader.make_score_path(address, tx_hash)
@@ -138,22 +140,13 @@ class IconScoreMapper(object):
 
         score_info: 'IconScoreInfo' = self.get(address)
         if score_info is None:
-            score_db: 'IconScoreDatabase' = self._create_score_database(address)
+            context_db = ContextDatabaseFactory.create_by_address(address)
+            score_db = IconScoreDatabase(address, context_db)
         else:
             score_db: 'IconScoreDatabase' = score_info.score_db
 
         # Cache a new IconScoreInfo instance
         self[address] = IconScoreInfo(score_class, score_db, tx_hash)
-
-    @staticmethod
-    def _create_score_database(address: 'Address') -> 'IconScoreDatabase':
-        """Create IconScoreDatabase instance
-        with icon_score_address and ContextDatabase
-
-        :param address: icon_score_address
-        """
-        context_db = ContextDatabaseFactory.create_by_address(address)
-        return IconScoreDatabase(address, context_db)
 
     def _load_score_class(self, address: 'Address', tx_hash: bytes) -> type:
         """Load IconScoreBase subclass from IconScore python package

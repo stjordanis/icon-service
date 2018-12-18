@@ -235,9 +235,9 @@ class IconScoreDeployEngine(object):
                    context: 'IconScoreContext',
                    tx_params: 'IconScoreDeployTXParams') -> None:
         """
-        load score on memory
-        write file system
-        call on_deploy(install, update)
+        Decompress a SCORE zip file and write them to file system
+        Create a SCORE instance from SCORE class
+        Call a SCORE initialization function (on_install or on_update)
 
         :param tx_params: use deploy_data, score_address, tx_hash, deploy_type from IconScoreDeployTxParams
         :return:
@@ -246,7 +246,7 @@ class IconScoreDeployEngine(object):
         data = tx_params.deploy_data
         score_address = tx_params.score_address
         content_type: str = data.get('contentType')
-        content: bytes = data.get('content')
+        content: str = data.get('content')
         params: dict = data.get('params', {})
 
         deploy_info: 'IconScoreDeployInfo' =\
@@ -272,11 +272,10 @@ class IconScoreDeployEngine(object):
             if IconScoreContextUtil.is_service_flag_on(context, IconServiceFlag.SCORE_PACKAGE_VALIDATOR):
                 IconScoreContextUtil.try_score_package_validate(context, score_address, next_tx_hash)
 
-            score: 'IconScoreBase' =\
-                context.new_icon_score_mapper.get_icon_score(score_address, next_tx_hash)
-            if score is None:
-                raise InvalidParamsException(
-                    f'SCORE load failure: address({score_address}) txHash({next_tx_hash.hex()})')
+            new_score_mapper: 'IconScoreMapper' = context.new_icon_score_mapper
+            new_score_mapper.load_score_class(score_address, next_tx_hash)
+            score_info: 'IconScoreInfo' = new_score_mapper[score_address]
+            score: 'IconScoreBase' = score_info.create_score()
 
             deploy_type = tx_params.deploy_type
             if deploy_type == DeployType.INSTALL:

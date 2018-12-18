@@ -47,6 +47,9 @@ class IconScoreInfo(object):
     def score_db(self) -> 'IconScoreDatabase':
         return self._score_db
 
+    def create_score(self) -> 'IconScoreBase':
+        return self._score_class(self._score_db)
+
     @staticmethod
     def _check_icon_score(icon_score: 'IconScoreBase') -> None:
         """Check if key type is an icon score address type or not.
