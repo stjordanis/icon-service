@@ -120,7 +120,13 @@ class IconScoreDeployEngine(object):
 
     def deploy(self, context: 'IconScoreContext', tx_hash: bytes) -> None:
         """
-        included audit deploy
+        1. Convert a content from hexa string to bytes
+        2. Decompress zipped SCORE code and write it to filesystem
+        3. Import the decompressed SCORE code
+        4. Create a SCORE instance from the code
+        5. Run on_install() or on_update() method in the SCORE
+        6. Update the deployed SCORE info to LevelDB
+
         :param context:
         :param tx_hash:
         :return:
@@ -145,8 +151,8 @@ class IconScoreDeployEngine(object):
         :return:
         """
 
-        data = tx_params.deploy_data
-        content_type = data.get('contentType')
+        data: dict = tx_params.deploy_data
+        content_type: str = data.get('contentType')
 
         if content_type == 'application/tbears':
             if not context.legacy_tbears_mode:
@@ -246,7 +252,8 @@ class IconScoreDeployEngine(object):
         data = tx_params.deploy_data
         score_address = tx_params.score_address
         content_type: str = data.get('contentType')
-        content: str = data.get('content')
+        # content is a string on tbears mode, otherwise bytes
+        content = data.get('content')
         params: dict = data.get('params', {})
 
         deploy_info: 'IconScoreDeployInfo' =\
@@ -273,7 +280,7 @@ class IconScoreDeployEngine(object):
                 IconScoreContextUtil.try_score_package_validate(context, score_address, next_tx_hash)
 
             new_score_mapper: 'IconScoreMapper' = context.new_icon_score_mapper
-            new_score_mapper.load_score_class(score_address, next_tx_hash)
+            new_score_mapper.load_score_info(score_address, next_tx_hash)
             score_info: 'IconScoreInfo' = new_score_mapper[score_address]
             score: 'IconScoreBase' = score_info.create_score()
 
@@ -285,6 +292,7 @@ class IconScoreDeployEngine(object):
             else:
                 on_deploy = None
 
+            # owner is set in IconScoreBase.__init__()
             context.msg = Message(sender=score.owner)
             context.tx = None
 
@@ -297,9 +305,8 @@ class IconScoreDeployEngine(object):
             context.msg = backup_msg
             context.tx = backup_tx
 
-        return context.new_icon_score_mapper.put_score_info(score_address, score, next_tx_hash)
-
-    def _deploy_score_on_tbears_mode(self, context: 'IconScoreContext',
+    @staticmethod
+    def _deploy_score_on_tbears_mode(context: 'IconScoreContext',
                                      score_address: 'Address', tx_hash: bytes, content: bytes):
         score_root_path = IconScoreContextUtil.get_score_root_path(context)
         target_path = path.join(score_root_path, score_address.to_bytes().hex())

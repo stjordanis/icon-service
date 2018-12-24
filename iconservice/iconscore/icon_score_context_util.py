@@ -48,29 +48,41 @@ class IconScoreContextUtil(object):
 
     @staticmethod
     def get_icon_score(context: 'IconScoreContext', address: 'Address') -> Optional['IconScoreBase']:
-        score = None
+        score_info: 'IconScoreInfo' = None
 
         if context.type == IconScoreContextType.INVOKE:
             score_info = context.new_icon_score_mapper.get(address)
-            if score_info:
-                score = score_info.icon_score
-        if score is None:
-            score = IconScoreContextUtil._get_icon_score(context, address)
 
-        return score
+        if score_info is None:
+            score_info = IconScoreContextUtil._get_score_info(context, address)
+            if score_info is None:
+                raise ServerErrorException(f'Failed to get SCORE: {address}')
+
+        # Create a SCORE instance every time
+        # to prevent consensus failure from wrong member variable use in SCORE
+        return score_info.create_score()
 
     @staticmethod
-    def _get_icon_score(context: 'IconScoreContext', address: 'Address') -> Optional['IconScoreBase']:
+    def _get_score_info(context: 'IconScoreContext', address: 'Address') -> Optional['IconScoreBase']:
+        score_mapper: 'IconScoreMapper' = context.icon_score_mapper
         deploy_info: 'IconScoreDeployInfo' = IconScoreContextUtil.get_deploy_info(context, address)
+
         if deploy_info is None or deploy_info.deploy_state != DeployState.ACTIVE:
             raise InvalidParamsException(f'SCORE is inactive: {address}')
 
-        current_tx_hash = deploy_info.current_tx_hash
-
+        current_tx_hash: bytes = deploy_info.current_tx_hash
         if current_tx_hash is None:
             current_tx_hash = bytes(DEFAULT_BYTE_SIZE)
 
-        return context.icon_score_mapper.get_icon_score(address, current_tx_hash)
+        score_info = score_mapper.get(address)
+        if score_info is None:
+            score_info: 'IconScoreInfo' = score_mapper.load_score_info(address, current_tx_hash)
+
+        if current_tx_hash != score_info.tx_hash:
+            raise ServerErrorException(
+                f'txHash(0x{current_tx_hash.hex()}) != scoreInfo.txHash(0x{score_info.tx_hash.hex()})')
+
+        return score_info
 
     @staticmethod
     def try_score_package_validate(context: 'IconScoreContext', address: 'Address', tx_hash: bytes) -> None:
@@ -147,25 +159,6 @@ class IconScoreContextUtil(object):
                                      tx_hash: bytes) -> Optional['Address']:
         warnings.warn("legacy function don't use.", DeprecationWarning, stacklevel=2)
         return context.icon_score_deploy_engine.icon_deploy_storage.get_score_address_by_tx_hash(context, tx_hash)
-
-    @staticmethod
-    def load_score(context: 'IconScoreContext',
-                   address: 'Address',
-                   tx_hash: bytes) -> Optional['IconScoreBase']:
-        if context.type == IconScoreContextType.INVOKE:
-            return context.new_icon_score_mapper.load_score(address, tx_hash)
-        else:
-            return context.icon_score_mapper.load_score(address, tx_hash)
-
-    @staticmethod
-    def put_score_info(context: 'IconScoreContext',
-                       address: 'Address',
-                       icon_score: 'IconScoreBase',
-                       tx_hash: bytes) -> None:
-        if context.type == IconScoreContextType.INVOKE:
-            return context.new_icon_score_mapper.put_score_info(address, icon_score, tx_hash)
-        else:
-            return context.icon_score_mapper.put_score_info(address, icon_score, tx_hash)
 
     @staticmethod
     def get_deploy_tx_params(context: 'IconScoreContext', tx_hash: bytes) -> Optional['IconScoreDeployTXParams']:

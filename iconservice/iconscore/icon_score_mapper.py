@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import os
-
 from shutil import rmtree
 from threading import Lock
 from typing import TYPE_CHECKING, Optional
@@ -24,7 +23,7 @@ from iconcommons import Logger
 from iconservice.builtin_scores.governance.governance import Governance
 from .icon_score_mapper_object import IconScoreInfo, IconScoreMapperObject
 from ..base.address import Address, GOVERNANCE_SCORE_ADDRESS
-from ..base.exception import InvalidParamsException
+from ..base.exception import InvalidParamsException, ServerErrorException
 from ..database.db import IconScoreDatabase
 from ..database.factory import ContextDatabaseFactory
 from ..deploy.icon_score_deploy_engine import IconScoreDeployStorage
@@ -92,53 +91,32 @@ class IconScoreMapper(object):
     def score_root_path(self) -> str:
         return self.icon_score_class_loader.score_root_path
 
-    '''
-    def get_icon_score(self, address: 'Address', tx_hash: bytes) -> Optional['IconScoreBase']:
-        """
-        :param address:
-        :param tx_hash:
-        :return: IconScoreBase object
-        """
-        score = None
-        icon_score_info = self.get(address)
-
-        if icon_score_info is None:
-            score = self.load_score(address, tx_hash)
-            if score is None:
-                raise InvalidParamsException(f"score is None address: {address}")
-            self.put_score_info(address, score, tx_hash)
-
-        if icon_score_info is not None:
-            score = icon_score_info.icon_score
-
-        return score
-    '''
-
     def try_score_package_validate(self, address: 'Address', tx_hash: bytes):
         score_path = self.icon_score_class_loader.make_score_path(address, tx_hash)
         whitelist_table = self._get_score_package_validator_table()
         self.icon_score_class_loader.try_score_package_validate(whitelist_table, score_path)
 
     def _get_score_package_validator_table(self) -> dict:
-        governance_info = self.get(GOVERNANCE_SCORE_ADDRESS)
+        governance_info: 'IconScoreInfo' = self.get(GOVERNANCE_SCORE_ADDRESS)
+
         if governance_info:
             governance: 'Governance' = governance_info.icon_score
             try:
                 return governance.import_white_list_cache
             except AttributeError:
-                return {"iconservice": ['*']}
-        else:
-            return {"iconservice": ['*']}
+                pass
 
-    def load_score_class(self, address: 'Address', tx_hash: bytes) -> Optional['IconScoreBase']:
+        return {"iconservice": ['*']}
+
+    def load_score_info(self, address: 'Address', tx_hash: bytes) -> Optional['IconScoreInfo']:
         """Load a deployed score package from the path indicated by address and tx_hash
 
         :param address:
         :param tx_hash:
         """
+        score_info: 'IconScoreInfo' = self.get(address)
         score_class: type = self._load_score_class(address, tx_hash)
 
-        score_info: 'IconScoreInfo' = self.get(address)
         if score_info is None:
             context_db = ContextDatabaseFactory.create_by_address(address)
             score_db = IconScoreDatabase(address, context_db)
@@ -146,7 +124,10 @@ class IconScoreMapper(object):
             score_db: 'IconScoreDatabase' = score_info.score_db
 
         # Cache a new IconScoreInfo instance
-        self[address] = IconScoreInfo(score_class, score_db, tx_hash)
+        score_info = IconScoreInfo(score_class, score_db, tx_hash)
+        self[address] = score_info
+
+        return score_info
 
     def _load_score_class(self, address: 'Address', tx_hash: bytes) -> type:
         """Load IconScoreBase subclass from IconScore python package
