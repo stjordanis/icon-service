@@ -48,6 +48,12 @@ class IconScoreContextUtil(object):
 
     @staticmethod
     def get_icon_score(context: 'IconScoreContext', address: 'Address') -> Optional['IconScoreBase']:
+        """Create a SCORE instance from SCORE class and return it
+
+        :param context:
+        :param address:
+        :return:
+        """
         score_info: 'IconScoreInfo' = None
 
         if context.type == IconScoreContextType.INVOKE:
@@ -64,6 +70,15 @@ class IconScoreContextUtil(object):
 
     @staticmethod
     def _get_score_info(context: 'IconScoreContext', address: 'Address') -> Optional['IconScoreBase']:
+        """Return IconScoreInfo instance indicated by address.
+
+        If IconScoreInfo instance is not found,
+        create it from SCORE class and current tx_hash of the deployed SCORE
+
+        :param context:
+        :param address:
+        :return:
+        """
         score_mapper: 'IconScoreMapper' = context.icon_score_mapper
         deploy_info: 'IconScoreDeployInfo' = IconScoreContextUtil.get_deploy_info(context, address)
 

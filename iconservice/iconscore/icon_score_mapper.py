@@ -23,14 +23,13 @@ from iconcommons import Logger
 from iconservice.builtin_scores.governance.governance import Governance
 from .icon_score_mapper_object import IconScoreInfo, IconScoreMapperObject
 from ..base.address import Address, GOVERNANCE_SCORE_ADDRESS
-from ..base.exception import InvalidParamsException, ServerErrorException
+from ..base.exception import InvalidParamsException
 from ..database.db import IconScoreDatabase
 from ..database.factory import ContextDatabaseFactory
 from ..deploy.icon_score_deploy_engine import IconScoreDeployStorage
 from ..icon_constant import DEFAULT_BYTE_SIZE
 
 if TYPE_CHECKING:
-    from .icon_score_base import IconScoreBase
     from .icon_score_class_loader import IconScoreClassLoader
 
 
@@ -84,8 +83,8 @@ class IconScoreMapper(object):
             self._score_mapper.update(mapper._score_mapper)
 
     def close(self):
-        for addr, info in self._score_mapper.items():
-            info.icon_score.db.close()
+        for _, score_info in self._score_mapper.items():
+            score_info.score.db.close()
 
     @property
     def score_root_path(self) -> str:

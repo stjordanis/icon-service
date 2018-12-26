@@ -102,12 +102,12 @@ class IconScoreDeployEngine(object):
             raise e
 
     @staticmethod
-    def _check_audit_ignore(context: 'IconScoreContext', icon_score_address: Address):
+    def _check_audit_ignore(context: 'IconScoreContext', icon_score_address: Address) -> bool:
         """Skip audit process for SystemSCORE update
 
         :param context:
         :param icon_score_address:
-        :return:
+        :return: True(skip audit), False(audit is needed)
         """
         if IconScoreContextUtil.get_revision(context) >= REVISION_2:
             is_system_score = is_builtin_score(str(icon_score_address))
@@ -120,7 +120,7 @@ class IconScoreDeployEngine(object):
 
     def deploy(self, context: 'IconScoreContext', tx_hash: bytes) -> None:
         """
-        1. Convert a content from hexa string to bytes
+        1. Convert a content from hex string to bytes
         2. Decompress zipped SCORE code and write it to filesystem
         3. Import the decompressed SCORE code
         4. Create a SCORE instance from the code
@@ -143,7 +143,7 @@ class IconScoreDeployEngine(object):
     def deploy_for_builtin(self, context: 'IconScoreContext',
                            score_address: 'Address',
                            src_score_path: str):
-        self._score_deploy_for_builtin(context, score_address, src_score_path)
+        self._on_deploy_for_builtin(context, score_address, src_score_path)
 
     def _score_deploy(self, context: 'IconScoreContext', tx_params: 'IconScoreDeployTXParams'):
         """
@@ -164,11 +164,6 @@ class IconScoreDeployEngine(object):
                 f'Invalid contentType: {content_type}')
 
         self._on_deploy(context, tx_params)
-
-    def _score_deploy_for_builtin(self, context: 'IconScoreContext',
-                                  icon_score_address: 'Address',
-                                  src_score_path: str):
-        self._on_deploy_for_builtin(context, icon_score_address, src_score_path)
 
     def write_deploy_info_and_tx_params(self,
                                         context: 'IconScoreContext',
@@ -200,13 +195,11 @@ class IconScoreDeployEngine(object):
                                src_score_path: str) -> None:
         """Install an icon score for builtin
         """
-
         score_root_path = IconScoreContextUtil.get_score_root_path(context)
-        target_path = path.join(score_root_path,
-                                score_address.to_bytes().hex())
+        target_path = path.join(score_root_path, score_address.to_bytes().hex())
         makedirs(target_path, exist_ok=True)
 
-        deploy_info = IconScoreContextUtil.get_deploy_info(context, score_address)
+        deploy_info = self.icon_deploy_storage.get_deploy_info(context, score_address)
         if deploy_info is None:
             next_tx_hash = None
         else:
@@ -217,15 +210,13 @@ class IconScoreDeployEngine(object):
         converted_tx_hash: str = f'0x{bytes.hex(next_tx_hash)}'
         score_path = path.join(target_path, converted_tx_hash)
 
-        DirectoryNameChanger.rename_directory(score_path)
-
         try:
             copytree(src_score_path, score_path)
         except FileExistsError:
             pass
 
         try:
-            score = IconScoreContextUtil.load_score(context, score_address, next_tx_hash)
+            score = IconScoreContextUtil.get_icon_score(context, score_address, next_tx_hash)
             if score is None:
                 raise InvalidParamsException(f'score is None : {score_address}')
 
@@ -345,8 +336,8 @@ class IconScoreDeployEngine(object):
     @staticmethod
     def _initialize_score(on_deploy: Callable[[dict], None],
                           params: dict) -> None:
-        """on_install() or on_update() of score is called
-        only once when installed or updated
+        """on_install() or on_update() in SCORE is called
+        only once when a SCORE is installed or updated
 
         :param on_deploy: score.on_install() or score.on_update()
         :param params: paramters passed to on_install or on_update()

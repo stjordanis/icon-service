@@ -112,20 +112,24 @@ class IconScoreDeployTXParams(object):
 
 
 class IconScoreDeployInfo(object):
-    _VERSION = 0
-    _STRUCT_FMT = \
-        f'>BB{ICON_CONTRACT_ADDRESS_BYTES_SIZE}s{ICON_EOA_ADDRESS_BYTES_SIZE}' \
-        f's{DEFAULT_BYTE_SIZE}s{DEFAULT_BYTE_SIZE}s'
+    """
+    leveldb IconScoreDeployInfo value structure
+    (bigendian, 1 + 1 + ICON_CONTRACT_ADDRESS_BYTES_SIZE + ICON_EOA_ADDRESS_BYTES_SIZE +
+    DEFAULT_BYTE_SIZE + DEFAULT_BYTE_SIZE bytes)
+    | version(1)
+    | deploystate(1)
+    | score_address(ICON_CONTRACT_ADDRESS_BYTES_SIZE)
+    | owner(ICON_EOA_ADDRESS_BYTES_SIZE)
+    | current_tx_hash(DEFAULT_BYTE_SIZE)
+    | next_tx_hash(DEFAULT_BYTE_SIZE)
+    """
 
-    # leveldb IconScoreDeployInfo value structure
-    # (bigendian, 1 + 1 + ICON_CONTRACT_ADDRESS_BYTES_SIZE + ICON_EOA_ADDRESS_BYTES_SIZE +
-    # DEFAULT_BYTE_SIZE + DEFAULT_BYTE_SIZE bytes)
-    # | version(1)
-    # | deploystate(1)
-    # | score_address(ICON_CONTRACT_ADDRESS_BYTES_SIZE)
-    # | owner(ICON_EOA_ADDRESS_BYTES_SIZE)
-    # | current_tx_hash(DEFAULT_BYTE_SIZE)
-    # | next_tx_hash(DEFAULT_BYTE_SIZE)
+    _VERSION = 0
+    _STRUCT_FMT = f'>BB' \
+        f'{ICON_CONTRACT_ADDRESS_BYTES_SIZE}s' \
+        f'{ICON_EOA_ADDRESS_BYTES_SIZE}s' \
+        f'{DEFAULT_BYTE_SIZE}s' \
+        f'{DEFAULT_BYTE_SIZE}s'
 
     def __init__(self,
                  score_address: 'Address',
@@ -188,16 +192,13 @@ class IconScoreDeployInfo(object):
         """
 
         # for extendability
+        default_tx_hash = bytes(DEFAULT_BYTE_SIZE)
 
-        current_hash = self.current_tx_hash
-        if current_hash is None:
-            current_hash = bytes(DEFAULT_BYTE_SIZE)
-        converted_current_hash = current_hash
+        converted_current_hash: bytes =\
+            self._get_valid_tx_hash(self.current_tx_hash, default_tx_hash)
 
-        next_hash = self.next_tx_hash
-        if next_hash is None:
-            next_hash = bytes(DEFAULT_BYTE_SIZE)
-        converted_next_hash = next_hash
+        converted_next_hash: bytes =\
+            self._get_valid_tx_hash(self.next_tx_hash, default_tx_hash)
 
         bytes_var = pack(self._STRUCT_FMT,
                          self._VERSION,
@@ -206,8 +207,18 @@ class IconScoreDeployInfo(object):
                          converted_current_hash, converted_next_hash)
         return bytes_var
 
+    @staticmethod
+    def _get_valid_tx_hash(tx_hash: Optional[bytes], default_tx_hash: bytes) -> bytes:
+        if tx_hash is None:
+            return default_tx_hash
+        else:
+            return tx_hash
+
 
 class IconScoreDeployStorage(object):
+    """Store deploy_int and tx_params on LevelDB.
+    """
+
     _DEPLOY_STORAGE_PREFIX = b'isds|'
     _DEPLOY_STORAGE_DEPLOY_INFO_PREFIX = _DEPLOY_STORAGE_PREFIX + b'di|'
     _DEPLOY_STORAGE_DEPLOY_TX_PARAMS_PREFIX = _DEPLOY_STORAGE_PREFIX + b'dtp|'

@@ -123,8 +123,8 @@ class IconServiceEngine(ContextContainer):
         self._icon_score_mapper = IconScoreMapper(is_lock=True)
 
         self._step_counter_factory = IconScoreStepCounterFactory()
-        self._icon_pre_validator = IconPreValidator(self._icx_engine,
-                                                    icon_score_deploy_storage)
+        self._icon_pre_validator =\
+            IconPreValidator(self._icx_engine, icon_score_deploy_storage)
 
         IconScoreContext.icx_engine = self._icx_engine
         IconScoreContext.icon_score_mapper = self._icon_score_mapper

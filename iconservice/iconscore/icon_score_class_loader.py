@@ -64,7 +64,7 @@ class IconScoreClassLoader(object):
         ScorePackageValidator().execute(import_whitelist, score_path, pkg_root_import)
 
     def run(self, score_path: str) -> type:
-        """Load a subclass and return it
+        """Load a IconScoreBase subclass and return it
 
         :param score_path:
         :return: subclass derived from IconScoreBase
