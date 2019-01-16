@@ -33,6 +33,7 @@ V = TypeVar('V', int, str, Address, bytes, bool)
 ARRAY_DB_ID = b'\x00'
 DICT_DB_ID = b'\x01'
 VAR_DB_ID = b'\x02'
+LINKEDLIST_DB_ID = b'\x03'
 
 
 class ContainerUtil(object):
@@ -53,6 +54,8 @@ class ContainerUtil(object):
             container_id = ARRAY_DB_ID
         elif cls == DictDB:
             container_id = DICT_DB_ID
+        elif cls == LinkedListDB:
+            container_id = LINKEDLIST_DB_ID
         else:
             raise ContainerDBException(f'Unsupported container class: {cls}')
 
@@ -112,7 +115,7 @@ class ContainerUtil(object):
 
         obj_value = None
         if value_type == int:
-            obj_value = int.from_bytes(value, "big", signed=True)
+            obj_value = int.from_bytes(value, DATA_BYTE_ORDER, signed=True)
         elif value_type == str:
             obj_value = value.decode()
         elif value_type == Address:
@@ -315,6 +318,288 @@ class ArrayDB(Iterator):
             if e == item:
                 return True
         return False
+
+
+import struct
+
+
+class LinkedListDB(object):
+    __NODE_ID= 'node_id'
+    __SIZE_ID = 'size_id'
+    __HEAD_NODE_ID = 'head_node_id'
+    __TAIL_NODE_ID = 'tail_node_id'
+
+    __NODE_ID_BYTE_KEY = __NODE_ID.encode('utf-8')
+    __SIZE_ID_BYTE_KEY = __SIZE_ID.encode('utf-8')
+    __HEAD_ID_BYTE_KEY = __HEAD_NODE_ID.encode('utf-8')
+    __TAIL_ID_BYTE_KEY = __TAIL_NODE_ID.encode('utf-8')
+
+    class Node(object):
+        __STRUCT_FMT = f'>BB'
+
+        def __init__(self,
+                     node_prev: int,
+                     node_next: int,
+                     node_data: bytes,
+                     node_id: int = 0):
+            self.prev = node_prev
+            self.next = node_next
+            self._data = node_data
+            self.id = node_id
+
+        def encode(self) -> bytes:
+            if self.id == 0:
+                raise ContainerDBException(f"Invalid id: can't use id")
+
+            prev_bytes = int_to_bytes(self.prev)
+            prev_bytes_length = len(prev_bytes)
+            next_bytes = int_to_bytes(self.next)
+            next_bytes_length = len(next_bytes)
+
+            ret = struct.pack(LinkedListDB.Node.__STRUCT_FMT, prev_bytes_length, next_bytes_length)
+            return ret + prev_bytes + next_bytes + self._data
+
+        def convert_data(self, value_type: type) -> V:
+            return ContainerUtil.decode_object(self._data, value_type)
+
+        @staticmethod
+        def decode(data: bytes) -> 'LinkedListDB.Node':
+            length_bytes = data[:2]
+            prev_bytes_length, next_bytes_length = struct.unpack(LinkedListDB.Node.__STRUCT_FMT, length_bytes)
+            prev_bytes = data[2:2 + prev_bytes_length]
+            next_bytes = data[2 + prev_bytes_length:2 + prev_bytes_length+next_bytes_length]
+            node_bytes = data[2 + prev_bytes_length+next_bytes_length:]
+
+            node_prev = int.from_bytes(prev_bytes, DATA_BYTE_ORDER, signed=True)
+            node_next = int.from_bytes(next_bytes, DATA_BYTE_ORDER, signed=True)
+
+            return LinkedListDB.Node(node_prev, node_next, node_bytes)
+
+        @staticmethod
+        def create_node(node_data: bytes) -> 'LinkedListDB.Node':
+            return LinkedListDB.Node(0, 0, node_data)
+
+    def __init__(self, var_key: str, db: 'IconScoreDatabase', value_type: type) -> None:
+        prefix: bytes = ContainerUtil.create_db_prefix(type(self), var_key)
+        self._db = db.get_sub_db(prefix)
+        self._value_type = value_type
+
+    def add_first(self, value: V) -> None:
+        byte_value = ContainerUtil.encode_value(value)
+        new_node = LinkedListDB.Node.create_node(byte_value)
+        self._add(0, new_node)
+
+    def add_last(self, value: V) -> None:
+        byte_value = ContainerUtil.encode_value(value)
+        new_node = LinkedListDB.Node.create_node(byte_value)
+        self._add(-1, new_node)
+
+    def add(self, index: int, value: V) -> None:
+        byte_value = ContainerUtil.encode_value(value)
+        new_node = LinkedListDB.Node.create_node(byte_value)
+        self._add(index, new_node)
+
+    def _add(self, index: int, new_node: 'LinkedListDB.Node') -> None:
+        node_id: int = self._get_variable(LinkedListDB.__NODE_ID_BYTE_KEY)
+        new_node.id = node_id + 1
+
+        head_id = self._get_variable(LinkedListDB.__HEAD_ID_BYTE_KEY)
+        tail_id = self._get_variable(LinkedListDB.__TAIL_ID_BYTE_KEY)
+        size = self._get_variable(LinkedListDB.__SIZE_ID_BYTE_KEY)
+
+        if index > size:
+            raise ContainerDBException(f'LinkedListDB out of range')
+
+        # reverse index
+        if index < 0:
+            index += size + 1
+
+        if size == 0:
+            LinkedListDB._set_node_to_db(self._db, new_node)
+            self._set_variable(LinkedListDB.__HEAD_ID_BYTE_KEY, new_node.id)
+            self._set_variable(LinkedListDB.__TAIL_ID_BYTE_KEY, new_node.id)
+        elif index == size:
+            # append
+            prev_node = self._get_node_by_index(self._db, head_id, tail_id, size, index - 1)
+            prev_node.next = new_node.id
+            new_node.prev = prev_node.id
+
+            LinkedListDB._set_node_to_db(self._db, prev_node)
+            LinkedListDB._set_node_to_db(self._db, new_node)
+            self._set_variable(LinkedListDB.__TAIL_ID_BYTE_KEY, new_node.id)
+        else:
+            # insert
+            next_node = self._get_node_by_index(self._db, head_id, tail_id, size, index)
+            prev_node = self._get_node_by_id(self._db, next_node.prev)
+
+            next_node.prev = new_node.id
+            new_node.next = next_node.id
+
+            if prev_node is not None:
+                prev_node.next = new_node.id
+                new_node.prev = prev_node.id
+            else:
+                self._set_variable(LinkedListDB.__HEAD_ID_BYTE_KEY, new_node.id)
+
+            LinkedListDB._set_node_to_db(self._db, prev_node)
+            LinkedListDB._set_node_to_db(self._db, next_node)
+            LinkedListDB._set_node_to_db(self._db, new_node)
+
+        next_size: int = size + 1
+        self._set_variable(LinkedListDB.__NODE_ID_BYTE_KEY, new_node.id)
+        self._set_variable(LinkedListDB.__SIZE_ID_BYTE_KEY, next_size)
+
+    def remove_first(self) -> None:
+        self._remove(0)
+
+    def remove_last(self) -> None:
+        self._remove(-1)
+
+    def remove(self, index: int) -> None:
+        self._remove(index)
+
+    def _remove(self, index: int) -> None:
+        head_id = self._get_variable(LinkedListDB.__HEAD_ID_BYTE_KEY)
+        tail_id = self._get_variable(LinkedListDB.__TAIL_ID_BYTE_KEY)
+        size = self._get_variable(LinkedListDB.__SIZE_ID_BYTE_KEY)
+
+        if index >= size:
+            raise ContainerDBException(f'LinkedListDB out of range')
+
+        if index < 0:
+            index += size
+
+        if size == 1:
+            self._db.delete(ContainerUtil.encode_key(head_id))
+            self._set_variable(LinkedListDB.__HEAD_ID_BYTE_KEY, 0)
+            self._set_variable(LinkedListDB.__TAIL_ID_BYTE_KEY, 0)
+        elif index == size - 1:
+            # tail remove
+            remove_node = self._get_node_by_index(self._db, head_id, tail_id, size, index)
+            prev_node = self._get_node_by_id(self._db, remove_node.prev)
+            prev_node.next = 0
+
+            LinkedListDB._set_node_to_db(self._db, prev_node)
+            self._db.delete(ContainerUtil.encode_key(remove_node.id))
+            self._set_variable(LinkedListDB.__TAIL_ID_BYTE_KEY, prev_node.id)
+        else:
+            # remove
+            remove_node = self._get_node_by_index(self._db, head_id, tail_id, size, index)
+            prev_node = self._get_node_by_id(self._db, remove_node.prev)
+            next_node = self._get_node_by_id(self._db, remove_node.next)
+
+            if prev_node is not None and next_node is not None:
+                prev_node.next = next_node.id
+                next_node.prev = prev_node.id
+            elif prev_node is None:
+                next_node.prev = 0
+                self._set_variable(LinkedListDB.__HEAD_ID_BYTE_KEY, next_node.id)
+            else:
+                prev_node.next = 0
+                self._set_variable(LinkedListDB.__TAIL_ID_BYTE_KEY, prev_node.id)
+
+            LinkedListDB._set_node_to_db(self._db, prev_node)
+            LinkedListDB._set_node_to_db(self._db, next_node)
+            self._db.delete(ContainerUtil.encode_key(remove_node.id))
+
+        next_size: int = size - 1
+        self._set_variable(LinkedListDB.__SIZE_ID_BYTE_KEY, next_size)
+
+    def _get_variable(self, db_key: bytes) -> int:
+        return ContainerUtil.decode_object(self._db.get(db_key), int)
+
+    def _set_variable(self, db_key: bytes, value: int) -> None:
+        byte_value = ContainerUtil.encode_value(value)
+        self._db.put(db_key, byte_value)
+
+    def __iter__(self):
+        head_id = self._get_variable(LinkedListDB.__HEAD_ID_BYTE_KEY)
+        size = self._get_variable(LinkedListDB.__SIZE_ID_BYTE_KEY)
+        return self._get_generator(self._db, head_id, size)
+
+    def reverse(self):
+        tail_id = self._get_variable(LinkedListDB.__TAIL_ID_BYTE_KEY)
+        size = self._get_variable(LinkedListDB.__SIZE_ID_BYTE_KEY)
+        return self._get_generator(self._db, tail_id, size, True)
+
+    def __len__(self):
+        return self._get_variable(LinkedListDB.__SIZE_ID_BYTE_KEY)
+
+    def __contains__(self, item: V):
+        for e in self:
+            if e.convert_data(self._value_type) == item:
+                return True
+        return False
+
+    def __getitem__(self, index: int) -> V:
+        head_id = self._get_variable(LinkedListDB.__HEAD_ID_BYTE_KEY)
+        tail_id = self._get_variable(LinkedListDB.__TAIL_ID_BYTE_KEY)
+        size = self._get_variable(LinkedListDB.__SIZE_ID_BYTE_KEY)
+
+        target_node = self._get_node_by_index(self._db, head_id, tail_id, size, index)
+        return target_node.convert_data(self._value_type)
+
+    @staticmethod
+    def _set_node_to_db(db: 'IconScoreDatabase', node: Optional['LinkedListDB.Node']) -> None:
+        if node is None:
+            return
+
+        byte_node_data: bytes = node.encode()
+        db.put(ContainerUtil.encode_key(node.id), byte_node_data)
+
+    @staticmethod
+    def _get_node_by_id(db: 'IconScoreDatabase', node_id: int) -> Optional['LinkedListDB.Node']:
+        bytes_node_id = ContainerUtil.encode_key(node_id)
+        bytes_node_data = db.get(bytes_node_id)
+        if bytes_node_data is None:
+            return None
+        else:
+            node = LinkedListDB.Node.decode(bytes_node_data)
+            node.id = node_id
+            return node
+
+    @staticmethod
+    def _get_node_by_index(db: 'IconScoreDatabase',
+                           head_id: int,
+                           tail_id: int,
+                           size: int,
+                           index: int) -> Optional['LinkedListDB.Node']:
+
+        if index >= size:
+            raise ContainerDBException(f'LinkedListDB out of range')
+
+        if size == 0:
+            return None
+
+        if index < 0:
+            index += size
+
+        if index > size // 2:
+            is_reverse = True
+            start_id = tail_id
+            index = size - index - 1
+        else:
+            is_reverse = False
+            start_id = head_id
+
+        gen = LinkedListDB._get_generator(db, start_id, size, is_reverse)
+        target_node = next(gen)
+
+        for _ in range(index):
+            target_node = next(gen)
+        return target_node
+
+    @staticmethod
+    def _get_generator(db: 'IconScoreDatabase', start_id: int, size: int, is_reverse: bool = False):
+        next_id = start_id
+
+        for _ in range(size):
+            node = LinkedListDB._get_node_by_id(db, next_id)
+            if is_reverse is True:
+                next_id = node.prev
+            else:
+                next_id = node.next
+            yield node
 
 
 class VarDB(object):

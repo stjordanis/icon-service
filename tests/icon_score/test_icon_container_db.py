@@ -21,7 +21,7 @@ from iconservice.database.db import ContextDatabase, IconScoreDatabase
 from iconservice.iconscore.icon_score_context import IconScoreContextType, IconScoreContext
 from iconservice.base.address import AddressPrefix
 from iconservice.base.exception import ContainerDBException
-from iconservice.iconscore.icon_container_db import ContainerUtil, DictDB, ArrayDB, VarDB
+from iconservice.iconscore.icon_container_db import ContainerUtil, DictDB, ArrayDB, VarDB, LinkedListDB
 from iconservice.iconscore.icon_score_context import ContextContainer
 from tests import create_address
 from tests.mock_db import MockKeyValueDatabase
@@ -167,9 +167,9 @@ class TestIconContainerDB(unittest.TestCase):
         self.assertNotEqual(test_var._db, self.db)
         self.assertEqual(test_var._db._prefix, b'\x02')
 
-        test_var.set(10**19+1)
+        test_var.set(10 ** 19 + 1)
 
-        self.assertEqual(test_var.get(), 10**19+1)
+        self.assertEqual(test_var.get(), 10 ** 19 + 1)
 
         test_var2 = VarDB(2,
                           self.db, value_type=Address)
@@ -237,3 +237,55 @@ class TestIconContainerDB(unittest.TestCase):
 
         with self.assertRaises(ContainerDBException):
             prefix: bytes = ContainerUtil.create_db_prefix(VarDB, 'vardb')
+
+    def test_linkedlist_db_encode_decode(self):
+        node1 = LinkedListDB.Node(1, 2, b'1', node_id=1)
+        bytes_node1 = node1.encode()
+        new_node1 = LinkedListDB.Node.decode(bytes_node1)
+        self.assertEqual(node1.prev, new_node1.prev)
+        self.assertEqual(node1.next, new_node1.next)
+        self.assertEqual(node1._data, new_node1._data)
+
+    def test_linkedlist_db(self):
+        name = "TEST"
+        test_list = LinkedListDB(name, self.db, value_type=int)
+        self.assertNotEqual(test_list._db, self.db)
+        self.assertEqual(test_list._db._prefix, ContainerUtil.create_db_prefix(LinkedListDB, name))
+
+        for i in range(10):
+            test_list.add_last(i)
+
+        for i in range(10):
+            self.assertEqual(i, test_list[i])
+        for _ in range(10):
+            test_list.remove_last()
+        self.assertEqual(0, len(test_list))
+
+        for i in range(10):
+            test_list.add_first(i)
+        for i in range(10):
+            self.assertEqual(10 - i - 1, test_list[i])
+        for _ in range(10):
+            test_list.remove_first()
+        self.assertEqual(0, len(test_list))
+
+        for i in range(10):
+            test_list.add_last(i)
+        test_list.add(1, -1)
+        test_list.add(3, -2)
+        test_list.add(5, -3)
+        test_list.add(7, -4)
+
+        test_list.remove(7)
+        test_list.remove(5)
+        test_list.remove(3)
+        test_list.remove(1)
+
+        for i in range(10):
+            self.assertEqual(i, test_list[i])
+        
+        for i, node in enumerate(test_list):
+            self.assertEqual(node.convert_data(int), test_list[i])
+
+        for i, node in enumerate(test_list.reverse()):
+            self.assertEqual(node.convert_data(int), test_list[10 - i - 1])
