@@ -169,6 +169,7 @@ class IconScoreEngine(object):
                 f'SCORE not found: {icon_score_address}')
 
         IconScoreEngine._fix_mecacoin_member_variable_bug_on_mainnet(context, icon_score)
+        # IconScoreEngine._fix_mecacoin_member_variable_bug_on_testnet(context, icon_score)
 
         return icon_score
 
@@ -207,3 +208,35 @@ class IconScoreEngine(object):
         Logger.warning(
             tag='MECA', msg=f'PrivateSaleHolder: {score.privateSaleHolder}')
         print(f'PrivateSaleHolder: {score.privateSaleHolder}')
+
+    @staticmethod
+    def _fix_mecacoin_member_variable_bug_on_testnet(
+            context: 'IconScoreContext', score: 'IconScoreBase'):
+        """Initialize self.privateSaleHolder to prevent the score from raising an exception
+
+        Resolve consensus failure, initializing an undefined member variable in meca coin
+        This code is only available for testnet.
+
+        :param context:
+        :param score:
+        :return:
+        """
+        if context.type != IconScoreContextType.INVOKE:
+            return
+
+        block_height: int = context.block.height
+        if block_height < 42469:
+            return
+
+        meca_coin_address = Address.from_string('cxf6df28536dbf33f7f2431178790a15e9d70cc79a')
+        if score.address != meca_coin_address:
+            return
+
+        if not hasattr(score, 'privateSaleHolder'):
+            raise ValueError
+            return
+
+        if block_height >= 42469:
+            del score.privateSaleHolder
+
+        # Logger.warning(tag='MECA', msg=f'Does score.privateSaleHolder exist?: {hasattr(score, "privateSaleHolder")}')
