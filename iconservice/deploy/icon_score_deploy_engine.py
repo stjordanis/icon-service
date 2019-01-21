@@ -13,13 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from os import path, symlink, makedirs, rename
+from os import path, symlink, makedirs
 from shutil import copytree
-from time import time
 from typing import TYPE_CHECKING, Callable
 
 from iconcommons import Logger
-
 from . import DeployType
 from .icon_score_deploy_storage import IconScoreDeployStorage
 from .icon_score_deployer import IconScoreDeployer
@@ -28,7 +26,7 @@ from ..base.address import ZERO_SCORE_ADDRESS
 from ..base.exception import InvalidParamsException, ServerErrorException
 from ..base.message import Message
 from ..base.type_converter import TypeConverter
-from ..icon_constant import IconServiceFlag, ICON_DEPLOY_LOG_TAG, DEFAULT_BYTE_SIZE, REVISION_2, REVISION_3
+from ..icon_constant import IconServiceFlag, ICON_DEPLOY_LOG_TAG, DEFAULT_BYTE_SIZE, REVISION_2
 from ..iconscore.icon_score_context_util import IconScoreContextUtil
 from ..utils import is_builtin_score
 
@@ -95,28 +93,30 @@ class IconScoreDeployEngine(object):
 
             self.write_deploy_info_and_tx_params(context, deploy_type, icon_score_address, data)
 
-            if self._check_audit_ignore(context, icon_score_address):
+            if not self._is_audit_needed(context, icon_score_address):
                 self.deploy(context, context.tx.hash)
         except BaseException as e:
             Logger.warning('Failed to write deploy info and tx params', ICON_DEPLOY_LOG_TAG)
             raise e
 
     @staticmethod
-    def _check_audit_ignore(context: 'IconScoreContext', icon_score_address: Address) -> bool:
-        """Skip audit process for SystemSCORE update
+    def _is_audit_needed(context: 'IconScoreContext', icon_score_address: Address) -> bool:
+        """Check whether audit process is needed or not
 
         :param context:
         :param icon_score_address:
-        :return: True(skip audit), False(audit is needed)
+        :return: True(needed) False(not needed)
         """
         if IconScoreContextUtil.get_revision(context) >= REVISION_2:
             is_system_score = is_builtin_score(str(icon_score_address))
         else:
             is_system_score = False
 
+        # FiXME: SCORE owner check should be done before calling self._is_audit_needed().
         is_owner = context.tx.origin == IconScoreContextUtil.get_owner(context, icon_score_address)
         is_audit_enabled = IconScoreContextUtil.is_service_flag_on(context, IconServiceFlag.AUDIT)
-        return not is_audit_enabled or all((is_system_score, is_owner))
+
+        return is_audit_enabled and not (is_system_score and is_owner)
 
     def deploy(self, context: 'IconScoreContext', tx_hash: bytes) -> None:
         """
@@ -211,6 +211,7 @@ class IconScoreDeployEngine(object):
         score_path = path.join(target_path, converted_tx_hash)
 
         try:
+            # Copy builtin score source files from iconservice package to score_path
             copytree(src_score_path, score_path)
         except FileExistsError:
             pass
@@ -322,11 +323,6 @@ class IconScoreDeployEngine(object):
         revision: int = IconScoreContextUtil.get_revision(context)
 
         if revision >= REVISION_2:
-            if revision >= REVISION_3:
-                install_path: str = DirectoryNameChanger.get_score_path_by_address_and_tx_hash(
-                    self._icon_score_deployer.score_root_path, score_address, tx_hash)
-                DirectoryNameChanger.rename_directory(install_path)
-
             deploy_method: callable = self._icon_score_deployer.deploy
         else:
             deploy_method: callable = self._icon_score_deployer.deploy_legacy
@@ -346,32 +342,3 @@ class IconScoreDeployEngine(object):
         annotations = TypeConverter.make_annotations_from_method(on_deploy)
         TypeConverter.convert_data_params(annotations, params)
         on_deploy(**params)
-
-
-class DirectoryNameChanger:
-    """Rename file/directory existent in a path where SCORE will be deployed"""
-    counter = 0
-
-    @classmethod
-    def rename_directory(cls, score_path: str):
-        """Rename file/directory
-
-        :param score_path: Path where SCORE will be deployed
-        """
-        if path.exists(score_path):
-            cls.counter += 1
-            rename(score_path, f"{score_path}{int(time()*10**6)}{cls.counter}_garbage_score")
-
-    @staticmethod
-    def get_score_path_by_address_and_tx_hash(score_root: str, address: 'Address', tx_hash: bytes) -> str:
-        """Get SCORE's path by given parameters
-
-        :param score_root: The path where all SCOREs will be deployed
-        :param address: Address of SCORE
-        :param tx_hash: Hash value of the transaction that deploy SCORE
-        :return: The path where SCORE will be deployed
-        """
-        score_root_path = path.join(score_root, address.to_bytes().hex())
-        converted_tx_hash = f'0x{bytes.hex(tx_hash)}'
-        install_path = path.join(score_root_path, converted_tx_hash)
-        return install_path

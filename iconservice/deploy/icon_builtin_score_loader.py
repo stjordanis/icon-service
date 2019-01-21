@@ -48,9 +48,11 @@ class IconBuiltinScoreLoader(object):
                             score_name: str,
                             icon_score_address: 'Address',
                             builtin_score_owner: 'Address'):
+        # If builtin score has been already deployed, skip the process below.
         if self._deploy_engine.icon_deploy_storage.is_score_active(context, icon_score_address):
             return
 
+        # score_path is the path that contains governance SCORE files in iconservice package.
         score_path = os.path.join(IconBuiltinScoreLoader._pre_builtin_score_root_path(), score_name)
 
         self._deploy_engine.write_deploy_info_and_tx_params_for_builtin(
