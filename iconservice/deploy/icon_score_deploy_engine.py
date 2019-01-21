@@ -132,7 +132,8 @@ class IconScoreDeployEngine(object):
         :return:
         """
 
-        tx_params = IconScoreContextUtil.get_deploy_tx_params(context, tx_hash)
+        tx_params: IconScoreDeployTXParams =\
+            self._icon_score_deploy_storage.get_deploy_tx_params(context, tx_hash)
         if tx_params is None:
             raise InvalidParamsException(f'tx_params is None: 0x{tx_hash.hex()}')
 
