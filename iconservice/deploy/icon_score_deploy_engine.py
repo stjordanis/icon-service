@@ -91,7 +91,9 @@ class IconScoreDeployEngine(object):
             if IconScoreContextUtil.is_service_flag_on(context, IconServiceFlag.DEPLOYER_WHITE_LIST):
                 IconScoreContextUtil.validate_deployer(context, context.tx.origin)
 
-            self.write_deploy_info_and_tx_params(context, deploy_type, icon_score_address, data)
+            self._icon_score_deploy_storage.put_deploy_info_and_tx_params(
+                context, icon_score_address, deploy_type,
+                context.tx.origin, context.tx.hash, data)
 
             if not self._is_audit_needed(context, icon_score_address):
                 self.deploy(context, context.tx.hash)
@@ -165,21 +167,6 @@ class IconScoreDeployEngine(object):
                 f'Invalid contentType: {content_type}')
 
         self._on_deploy(context, tx_params)
-
-    def write_deploy_info_and_tx_params(self,
-                                        context: 'IconScoreContext',
-                                        deploy_type: 'DeployType',
-                                        icon_score_address: 'Address',
-                                        data: dict) -> None:
-        """Write score deploy info to context db
-        """
-
-        self._icon_score_deploy_storage.put_deploy_info_and_tx_params(context,
-                                                                      icon_score_address,
-                                                                      deploy_type,
-                                                                      context.tx.origin,
-                                                                      context.tx.hash,
-                                                                      data)
 
     def write_deploy_info_and_tx_params_for_builtin(self,
                                                     context: 'IconScoreContext',
