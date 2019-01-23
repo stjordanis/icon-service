@@ -168,15 +168,6 @@ class IconScoreDeployEngine(object):
 
         self._on_deploy(context, tx_params)
 
-    def write_deploy_info_and_tx_params_for_builtin(self,
-                                                    context: 'IconScoreContext',
-                                                    icon_score_address: 'Address',
-                                                    owner_address: 'Address') -> None:
-        """Write score deploy info to context db for builtin
-        """
-        self._icon_score_deploy_storage.\
-            put_deploy_info_and_tx_params_for_builtin(context, icon_score_address, owner_address)
-
     def _on_deploy_for_builtin(self,
                                context: 'IconScoreContext',
                                score_address: 'Address',

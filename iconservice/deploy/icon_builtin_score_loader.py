@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 from ..base.address import Address
 from ..icon_constant import BUILTIN_SCORE_ADDRESS_MAPPER
+from .icon_score_deploy_storage import IconScoreDeployInfo, DeployState
 
 if TYPE_CHECKING:
     from .icon_score_deploy_engine import IconScoreDeployEngine
@@ -25,6 +26,11 @@ if TYPE_CHECKING:
 
 
 class IconBuiltinScoreLoader(object):
+    """Its roles:
+    - Save IconScoreDeployInfos of builtin scores to DB.
+    -
+
+    """
 
     @staticmethod
     def _pre_builtin_score_root_path():
@@ -46,15 +52,19 @@ class IconBuiltinScoreLoader(object):
 
     def _load_builtin_score(self, context: 'IconScoreContext',
                             score_name: str,
-                            icon_score_address: 'Address',
+                            score_address: 'Address',
                             builtin_score_owner: 'Address'):
+        score_deploy_storage: 'IconScoreDeployStorage' = self._deploy_engine.icon_deploy_storage
+
         # If builtin score has been already deployed, skip the process below.
-        if self._deploy_engine.icon_deploy_storage.is_score_active(context, icon_score_address):
+        if score_deploy_storage.is_score_active(context, score_address):
             return
 
         # score_path is the path that contains governance SCORE files in iconservice package.
         score_path = os.path.join(IconBuiltinScoreLoader._pre_builtin_score_root_path(), score_name)
 
-        self._deploy_engine.write_deploy_info_and_tx_params_for_builtin(
-            context, icon_score_address, builtin_score_owner)
-        self._deploy_engine.deploy_for_builtin(context, icon_score_address, score_path)
+        # Save deploy_info for a builtin score to score_deploy_storage.
+        deploy_info = IconScoreDeployInfo(score_address, DeployState.ACTIVE, builtin_score_owner, None, None)
+        score_deploy_storage.put_deploy_info(context, deploy_info)
+
+        self._deploy_engine.deploy_for_builtin(context, score_address, score_path)
