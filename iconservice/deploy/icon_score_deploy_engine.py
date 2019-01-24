@@ -173,6 +173,10 @@ class IconScoreDeployEngine(object):
                                score_address: 'Address',
                                src_score_path: str) -> None:
         """Install an icon score for builtin
+
+        1. To copy builtin score source to score_root_path/score_address directory.
+        2. create an score instance with score address and next_tx_hash
+        3. Run SCORE.on_install() or SCORE.on_update() with given parameters
         """
         score_root_path = IconScoreContextUtil.get_score_root_path(context)
         target_path = path.join(score_root_path, score_address.to_bytes().hex())

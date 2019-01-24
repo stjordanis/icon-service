@@ -16,12 +16,11 @@
 import os
 from typing import TYPE_CHECKING
 
+from .icon_score_deploy_storage import IconScoreDeployInfo, DeployState
 from ..base.address import Address
 from ..icon_constant import BUILTIN_SCORE_ADDRESS_MAPPER
-from .icon_score_deploy_storage import IconScoreDeployInfo, DeployState
 
 if TYPE_CHECKING:
-    from .icon_score_deploy_engine import IconScoreDeployEngine
     from ..iconscore.icon_score_context import IconScoreContext
 
 
@@ -37,12 +36,8 @@ class IconBuiltinScoreLoader(object):
         root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
         return os.path.join(root_path, 'builtin_scores')
 
-    def __init__(self,
-                 deploy_engine: 'IconScoreDeployEngine') -> None:
-        """Constructor
-        """
-
-        self._deploy_engine = deploy_engine
+    def __init__(self):
+        super().__init__()
 
     def load_builtin_scores(self, context: 'IconScoreContext', builtin_score_owner_str: str):
         builtin_score_owner = Address.from_string(builtin_score_owner_str)
@@ -54,7 +49,8 @@ class IconBuiltinScoreLoader(object):
                             score_name: str,
                             score_address: 'Address',
                             builtin_score_owner: 'Address'):
-        score_deploy_storage: 'IconScoreDeployStorage' = self._deploy_engine.icon_deploy_storage
+        score_deploy_engine: 'IconScoreDeployEngine' = context.icon_score_deploy_engine
+        score_deploy_storage: 'IconScoreDeployStorage' = score_deploy_engine.icon_deploy_storage
 
         # If builtin score has been already deployed, skip the process below.
         if score_deploy_storage.is_score_active(context, score_address):
@@ -67,4 +63,4 @@ class IconBuiltinScoreLoader(object):
         deploy_info = IconScoreDeployInfo(score_address, DeployState.ACTIVE, builtin_score_owner, None, None)
         score_deploy_storage.put_deploy_info(context, deploy_info)
 
-        self._deploy_engine.deploy_for_builtin(context, score_address, score_path)
+        score_deploy_engine.deploy_for_builtin(context, score_address, score_path)
