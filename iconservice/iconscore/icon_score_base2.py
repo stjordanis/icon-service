@@ -20,7 +20,7 @@ import json
 from typing import TYPE_CHECKING, Optional, Union, Any
 from abc import ABC, ABCMeta
 
-from ..base.exception import RevertException, ExceptionCode
+from ..base.exception import RevertException, ExceptionCode, IconScoreException
 from ..iconscore.icon_score_context import ContextContainer
 from ..iconscore.icon_score_step import StepType
 from ..base.address import Address
@@ -81,7 +81,18 @@ def revert(message: Optional[str] = None,
     :param message: revert message
     :param code: code
     """
-    raise RevertException(message, code)
+    try:
+        if not isinstance(code, (int, ExceptionCode)):
+            code = int(code)
+
+        if not isinstance(message, str):
+            message = str(message)
+    except:
+        raise IconScoreException(
+            message=f"Revert error: code or message is invalid",
+            code=ExceptionCode.SCORE_ERROR)
+    else:
+        raise RevertException(message, code)
 
 
 def sha3_256(data: bytes) -> bytes:
