@@ -18,6 +18,7 @@ from shutil import copytree
 from typing import TYPE_CHECKING, Callable
 
 from iconcommons import Logger
+
 from . import DeployType
 from .icon_score_deploy_storage import IconScoreDeployStorage
 from .icon_score_deployer import IconScoreDeployer
@@ -26,7 +27,8 @@ from ..base.address import ZERO_SCORE_ADDRESS
 from ..base.exception import InvalidParamsException, ServerErrorException
 from ..base.message import Message
 from ..base.type_converter import TypeConverter
-from ..icon_constant import IconServiceFlag, ICON_DEPLOY_LOG_TAG, DEFAULT_BYTE_SIZE, REVISION_2
+from ..icon_constant import IconServiceFlag, ICON_DEPLOY_LOG_TAG, REVISION_2
+from ..icon_constant import ZERO_TX_HASH
 from ..iconscore.icon_score_context_util import IconScoreContextUtil
 from ..utils import is_builtin_score
 
@@ -174,8 +176,8 @@ class IconScoreDeployEngine(object):
                                src_score_path: str) -> None:
         """Install an icon score for builtin
 
-        1. To copy builtin score source to score_root_path/score_address directory.
-        2. create an score instance with score address and next_tx_hash
+        1. Copy builtin score source to score_root_path/score_address directory.
+        2. Create an score instance with score address and next_tx_hash
         3. Run SCORE.on_install() or SCORE.on_update() with given parameters
         """
         score_root_path = IconScoreContextUtil.get_score_root_path(context)
@@ -184,14 +186,12 @@ class IconScoreDeployEngine(object):
 
         deploy_info = self.icon_deploy_storage.get_deploy_info(context, score_address)
         if deploy_info is None:
-            next_tx_hash = None
+            next_tx_hash = ZERO_TX_HASH
         else:
             next_tx_hash = deploy_info.next_tx_hash
-        if next_tx_hash is None:
-            next_tx_hash = bytes(DEFAULT_BYTE_SIZE)
 
-        converted_tx_hash: str = f'0x{bytes.hex(next_tx_hash)}'
-        score_path = path.join(target_path, converted_tx_hash)
+        # score_path is score_root_path/score_address/next_tx_hash/ directory.
+        score_path: str = path.join(target_path, f'0x{next_tx_hash.hex()}')
 
         try:
             # Copy builtin score source files from iconservice package to score_path
@@ -209,8 +209,6 @@ class IconScoreDeployEngine(object):
             Logger.warning(f'load wait icon score fail!! address: {score_address}', ICON_DEPLOY_LOG_TAG)
             Logger.warning('revert to add wait icon score', ICON_DEPLOY_LOG_TAG)
             raise e
-
-        IconScoreContextUtil.put_score_info(context, score_address, score, next_tx_hash)
 
     def _on_deploy(self,
                    context: 'IconScoreContext',
@@ -234,13 +232,9 @@ class IconScoreDeployEngine(object):
         deploy_info: 'IconScoreDeployInfo' =\
             self.icon_deploy_storage.get_deploy_info(context, tx_params.score_address)
         if deploy_info is None:
-            next_tx_hash = None
+            next_tx_hash: bytes = ZERO_TX_HASH
         else:
             next_tx_hash: bytes = deploy_info.next_tx_hash
-
-        if next_tx_hash is None:
-            # next_tx_hash is 0x0000...
-            next_tx_hash = bytes(DEFAULT_BYTE_SIZE)
 
         if content_type == 'application/tbears':
             self._deploy_score_on_tbears_mode(context, score_address, next_tx_hash, content)

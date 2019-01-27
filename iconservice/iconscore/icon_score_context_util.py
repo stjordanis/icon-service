@@ -86,8 +86,6 @@ class IconScoreContextUtil(object):
             raise InvalidParamsException(f'SCORE is inactive: {address}')
 
         current_tx_hash: bytes = deploy_info.current_tx_hash
-        if current_tx_hash is None:
-            current_tx_hash = bytes(DEFAULT_BYTE_SIZE)
 
         score_info = score_mapper.get(address)
         if score_info is None:

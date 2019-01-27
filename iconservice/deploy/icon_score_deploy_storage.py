@@ -135,8 +135,11 @@ class IconScoreDeployInfo(object):
                  score_address: 'Address',
                  deploy_state: 'DeployState',
                  owner: 'Address',
-                 current_tx_hash: Optional[bytes],
-                 next_tx_hash: Optional[bytes]):
+                 current_tx_hash: bytes,
+                 next_tx_hash: bytes):
+        assert isinstance(current_tx_hash, bytes) and len(current_tx_hash) == 32
+        assert isinstance(next_tx_hash, bytes) and len(next_tx_hash) == 32
+
         # key
         self._score_address = score_address
 
@@ -159,60 +162,29 @@ class IconScoreDeployInfo(object):
         """
 
         bytes_params = unpack(IconScoreDeployInfo._STRUCT_FMT, buf)
-        # version = bytes_params[0]
-        deploy_state = bytes_params[1]
-        score_address_bytes = bytes_params[2]
-        owner_address_bytes = bytes_params[3]
-        current_tx_hash = bytes_params[4]
-        next_tx_hash = bytes_params[5]
+        # version: int = bytes_params[0]
+        deploy_state: int = bytes_params[1]
+        score_address: 'Address' = Address.from_bytes(bytes_params[2])
+        owner_address: 'Address' = Address.from_bytes(bytes_params[3])
+        current_tx_hash: bytes = bytes_params[4]
+        next_tx_hash: bytes = bytes_params[5]
 
-        score_addr = Address.from_bytes(score_address_bytes)
-        owner_addr = Address.from_bytes(owner_address_bytes)
-
-        if int(bytes.hex(current_tx_hash), 16) == 0:
-            current_tx_hash = None
-        converted_current_tx_hash = current_tx_hash
-
-        if int(bytes.hex(next_tx_hash), 16) == 0:
-            next_tx_hash = None
-        converted_next_tx_hash = next_tx_hash
-
-        # MIGRATION
+        # DeployState 2 is deprecated, this code is needed for backward compatibility.
         if deploy_state == 2:
-            deploy_state = 1
+            deploy_state = DeployState.ACTIVE
 
-        info = IconScoreDeployInfo(score_addr, DeployState(deploy_state), owner_addr,
-                                   converted_current_tx_hash, converted_next_tx_hash)
-        return info
+        return IconScoreDeployInfo(
+            score_address, DeployState(deploy_state), owner_address, current_tx_hash, next_tx_hash)
 
     def to_bytes(self) -> bytes:
         """Convert IconScoreDeployInfo object to bytes
 
         :return: data including information of IconScoreDeployInfo object
         """
-
-        # for extendability
-        default_tx_hash = bytes(DEFAULT_BYTE_SIZE)
-
-        converted_current_hash: bytes =\
-            self._get_valid_tx_hash(self.current_tx_hash, default_tx_hash)
-
-        converted_next_hash: bytes =\
-            self._get_valid_tx_hash(self.next_tx_hash, default_tx_hash)
-
-        bytes_var = pack(self._STRUCT_FMT,
-                         self._VERSION,
-                         self.deploy_state.value,
-                         self._score_address.to_bytes(), self.owner.to_bytes(),
-                         converted_current_hash, converted_next_hash)
-        return bytes_var
-
-    @staticmethod
-    def _get_valid_tx_hash(tx_hash: Optional[bytes], default_tx_hash: bytes) -> bytes:
-        if isinstance(tx_hash, bytes):
-            return tx_hash
-        else:
-            return default_tx_hash
+        return pack(
+            self._STRUCT_FMT, self._VERSION, self.deploy_state.value,
+            self._score_address.to_bytes(), self.owner.to_bytes(),
+            self.current_tx_hash, self.next_tx_hash)
 
 
 class IconScoreDeployStorage(object):
@@ -306,11 +278,11 @@ class IconScoreDeployStorage(object):
 
         self._db.put(context, key, value)
 
-    def get_deploy_info(self, context: Optional['IconScoreContext'], score_addr: 'Address') \
+    def get_deploy_info(self, context: Optional['IconScoreContext'], score_address: 'Address') \
             -> Optional['IconScoreDeployInfo']:
 
         data: bytes = self._db.get(context, self._create_db_key(
-            self._DEPLOY_STORAGE_DEPLOY_INFO_PREFIX, score_addr.to_bytes()))
+            self._DEPLOY_STORAGE_DEPLOY_INFO_PREFIX, score_address.to_bytes()))
         if data is None:
             return None
 
