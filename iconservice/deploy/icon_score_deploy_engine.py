@@ -268,20 +268,17 @@ class IconScoreDeployEngine(object):
                 pass
         else:
             revision = IconScoreContextUtil.get_revision(context)
+            if revision >= REVISION_2:
+                if revision >= REVISION_3:
+                    install_path = DirectoryNameChanger.get_score_path_by_address_and_tx_hash(
+                        self._icon_score_deployer.score_root_path, score_address, next_tx_hash)
+                    DirectoryNameChanger.rename_directory(install_path)
 
-            if revision >= REVISION_3:
-                install_path = DirectoryNameChanger.get_score_path_by_address_and_tx_hash(
-                    self._icon_score_deployer.score_root_path, score_address, next_tx_hash)
-                DirectoryNameChanger.rename_directory(install_path)
                 self._icon_score_deployer.deploy(
                     address=score_address,
                     data=content,
-                    tx_hash=next_tx_hash)
-            elif revision == REVISION_2:
-                self._icon_score_deployer.deploy(
-                    address=score_address,
-                    data=content,
-                    tx_hash=next_tx_hash)
+                    tx_hash=next_tx_hash,
+                    revision=revision)
             else:
                 self._icon_score_deployer.deploy_legacy(
                     address=score_address,

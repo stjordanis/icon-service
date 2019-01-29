@@ -129,6 +129,50 @@ class TestIconScoreDeployer(unittest.TestCase):
             self.assertTrue(installed_contents.sort() == file_path_list.sort())
             IconScoreDeployer.remove_existing_score(self.score_root_path)
 
+    def test_deploy_replace_once(self):
+        """
+        Test for replacing the first occurrence only of the path which is upper than package.json
+        by using count on the function `replace`.
+        """
+        revision_list = [3, 4]
+        for revision in revision_list:
+            self.deployer = IconScoreDeployer('./')
+            self.address = create_address(AddressPrefix.CONTRACT)
+            self.archive_path = os.path.join(DIRECTORY_PATH, 'sample', 'score_registry.zip')
+            self.score_root_path = os.path.join(self.deployer.score_root_path, str(self.address.to_bytes().hex()))
+            tx_hash1 = create_tx_hash()
+            self.deployer.deploy(self.address, self.read_zipfile_as_byte(self.archive_path), tx_hash1, revision)
+            converted_tx_hash = f'0x{bytes.hex(tx_hash1)}'
+            install_path = os.path.join(self.score_root_path, converted_tx_hash)
+            zip_file_info_gen = self.deployer._extract_files_gen(self.read_zipfile_as_byte(self.archive_path), revision)
+            file_path_list = [name for name, info, parent_dir in zip_file_info_gen]
+            installed_contents = []
+            for directory, dirs, filename in os.walk(install_path):
+                parent_directory_index = directory.rfind('/')
+                parent_dir_name = directory[parent_directory_index + 1:]
+                for file in filename:
+                    if parent_dir_name == f'0x{bytes.hex(tx_hash1)}':
+                        installed_contents.append(file)
+                    else:
+                        installed_contents.append(f'{parent_dir_name}/{file}')
+            self.assertEqual(True, os.path.exists(install_path))
+            self.assertTrue(installed_contents.sort() == file_path_list.sort())
+
+            file_path_list_only_for_revision_3 = ["score_registry.py", "__init__.py"]
+            file_path_list_only_for_revision_4 = ["score_registry/score_registry.py", "score_registry/__init__.py"]
+
+            if revision == 3:
+                self.assertEqual(file_path_list_only_for_revision_3.sort(), [file_path for file_path in file_path_list if file_path in file_path_list_only_for_revision_3].sort())
+                self.assertEqual(file_path_list.sort(), [file_path for file_path in file_path_list
+                                                         if file_path not in file_path_list_only_for_revision_4].sort())
+            elif revision == 4:
+                self.assertEqual(file_path_list_only_for_revision_4.sort(),
+                                 [file_path for file_path in file_path_list if
+                                  file_path in file_path_list_only_for_revision_4].sort())
+                self.assertEqual(file_path_list.sort(), [file_path for file_path in file_path_list
+                                                         if file_path not in file_path_list_only_for_revision_4].sort())
+            IconScoreDeployer.remove_existing_score(self.score_root_path)
+
     def tearDown(self):
         IconScoreDeployer.remove_existing_score(self.score_root_path)
 

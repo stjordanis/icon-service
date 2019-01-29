@@ -27,12 +27,13 @@ class IconScoreDeployer(object):
     def __init__(self, score_root_path: str):
         self.score_root_path = score_root_path
 
-    def deploy(self, address: Address, data: bytes, tx_hash: bytes):
+    def deploy(self, address: Address, data: bytes, tx_hash: bytes, revision: int = None):
         """Deploy SCORE; Stores SCORE on the root path
 
         :param address: SCORE address
         :param data: Bytes of the zip file.
         :param tx_hash: Transaction hash
+        :param revision: Revision num
         """
         score_root_path = os.path.join(self.score_root_path, address.to_bytes().hex())
         converted_tx_hash = f'0x{bytes.hex(tx_hash)}'
@@ -45,7 +46,7 @@ class IconScoreDeployer(object):
             else:
                 os.makedirs(install_path)
 
-            file_info_generator = IconScoreDeployer._extract_files_gen(data)
+            file_info_generator = IconScoreDeployer._extract_files_gen(data, revision)
             for name, file_info, parent_dir in file_info_generator:
                 if not os.path.exists(os.path.join(install_path, parent_dir)):
                     os.makedirs(os.path.join(install_path, parent_dir))
@@ -57,12 +58,13 @@ class IconScoreDeployer(object):
             raise e
 
     @staticmethod
-    def _extract_files_gen(data: bytes):
+    def _extract_files_gen(data: bytes, revision: int = None):
         """
         Reads all files from the depth lower than where the file 'package.json' is and make the generator.
         The generator has tuples with a filename, file info, parent dir.
 
         :param data: Bytes of the zip file.
+        :param revision: Revision num.
         """
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as memory_zip:
@@ -85,7 +87,11 @@ class IconScoreDeployer(object):
                                 and file_path.find('/.') < 0
                                 and file_path.find(matched_file_path) == 0
                         ):
-                            file_path = file_path.replace(matched_file_path, '')
+                            if revision and revision >= 4:
+                                file_path = file_path.replace(matched_file_path, '', 1)
+                            else:
+                                # legacy for revision 1 to 3
+                                file_path = file_path.replace(matched_file_path, '')
                             parent_directory = os.path.dirname(file_path)
                             if file_path and file_path[-1] != '/':
                                 yield file_path, file, parent_directory
