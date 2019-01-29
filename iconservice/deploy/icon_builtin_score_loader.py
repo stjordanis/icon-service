@@ -71,21 +71,21 @@ class IconBuiltinScoreLoader(object):
             owner=builtin_score_owner,
             current_tx_hash=ZERO_TX_HASH,
             next_tx_hash=ZERO_TX_HASH)
+        score_deploy_storage.put_deploy_info(context, deploy_info)
 
         tx_hash: bytes = deploy_info.current_tx_hash
 
         # score_path is score_root_path/score_address/next_tx_hash/ directory.
         score_root_path = IconScoreContextUtil.get_score_root_path(context)
-        score_deploy_path: str = os.path.join(
-            score_root_path,
-            score_address.to_bytes().hex(),
-            f'0x{tx_hash.hex()}')
+        score_path: str = os.path.join(
+            score_root_path, score_address.to_bytes().hex())
 
         # Make a directory for a builtin score with a given score_address.
-        os.makedirs(score_deploy_path, exist_ok=True)
+        os.makedirs(score_path, exist_ok=True)
 
         try:
             # Copy builtin score source files from iconservice package to score_path
+            score_deploy_path: str = os.path.join(score_path, f'0x{tx_hash.hex()}')
             copytree(score_source_path_in_package, score_deploy_path)
         except FileExistsError:
             pass
@@ -100,8 +100,6 @@ class IconBuiltinScoreLoader(object):
 
             # Call on_install() to initialize the score database of the builtin score.
             score.on_install()
-
-            score_deploy_storage.put_deploy_info(context, deploy_info)
         except BaseException as e:
             Logger.exception(
                 f'Failed to deploy a builtin score: {score_address}\n'

@@ -156,8 +156,7 @@ class IconServiceEngine(ContextContainer):
         context = IconScoreContext(IconScoreContextType.DIRECT)
         try:
             self._push_context(context)
-            icon_builtin_score_loader = \
-                IconBuiltinScoreLoader(self._icon_score_deploy_engine)
+            icon_builtin_score_loader = IconBuiltinScoreLoader()
             icon_builtin_score_loader.load_builtin_scores(
                 context, self._conf[ConfigKey.BUILTIN_SCORE_OWNER])
         finally:
