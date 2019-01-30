@@ -1,5 +1,5 @@
 @startuml
-title Query, claim I-Score
+title Query I-Score
 
 participant "ICON Service engine" as IS
 participant "IISS engine" as IISS
@@ -11,16 +11,47 @@ database "I-Score DB" as ISDB
 group block invoke
 
 -> IS: [mq] block invoke
-IS -> IISS: [call] with TX
-IISS -> RC: [mq] query, claim
+IS -> IISS: [call] query
+IISS -> RC: [mq] query
 RC -> ISDB: read I-Score
-alt old I-Score
+opt old I-Score
 RC -> RC: caculate I-Score
 RC -> ISDB: write I-Score
 end
-RC -> IISS: [mq] query, claim response
-alt claim request
-IISS -> SDB: update
+RC -> IISS: [mq] query response
+IISS -> IS: return response
+
+end
+
+newpage Claim I-Score
+
+group block invoke
+
+-> IS: [mq] block invoke
+IS -> IISS: [call] with TX
+IISS -> RC: [mq] claim
+RC -> ISDB: read I-Score
+opt old I-Score
+RC -> RC: caculate I-Score
+end
+RC -> IISS: claim response
+IISS -> IS: return response
+
+end
+
+group write_precommit_state, remove_precommit_state
+
+-> IS: [mq] write_precommit_state\nor remove_precommit_state
+IS -> IISS: commit or rollback
+IISS -> RC: [mq] commit or rollback
+alt commit
+RC -> ISDB: set I-Score 0 and \nupdate block height
+else rollback
+RC -> RC: reset memory
+end
+RC -> IISS: [mq] commit or rollback response
+opt commit
+IISS -> SDB: update ICX
 end
 IISS -> IS: return response
 

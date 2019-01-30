@@ -10,9 +10,9 @@ database "I-Score DB" as ISDB
 
 -> IS: [mq] query
 IS -> IISS: [call] with request
-alt P-Rep list (sorted)
+alt query == P-Rep list (sorted)
 IISS -> IISS: read in memory
-else P-Rep Info.
+else else
 IISS -> SDB: read
 end
 IISS -> IS: return response
