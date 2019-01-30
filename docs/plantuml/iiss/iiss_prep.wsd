@@ -1,0 +1,21 @@
+@startuml
+title Query P-Rep
+
+participant "ICON Service engine" as IS
+participant "IISS engine" as IISS
+database "state DB" as SDB
+database "IISS data" as ID
+participant "Reward Calculator" as RC
+database "I-Score DB" as ISDB
+
+-> IS: [mq] query
+IS -> IISS: [call] with request
+alt P-Rep list (sorted)
+IISS -> IISS: read in memory
+else P-Rep Info.
+IISS -> SDB: read
+end
+IISS -> IS: return response
+<- IS: [mq] response
+
+@enduml

@@ -1,0 +1,29 @@
+@startuml
+title Query, claim I-Score
+
+participant "ICON Service engine" as IS
+participant "IISS engine" as IISS
+database "state DB" as SDB
+database "IISS data" as ID
+participant "Reward Calculator" as RC
+database "I-Score DB" as ISDB
+
+group block invoke
+
+-> IS: [mq] block invoke
+IS -> IISS: [call] with TX
+IISS -> RC: [mq] query, claim
+RC -> ISDB: read I-Score
+alt old I-Score
+RC -> RC: caculate I-Score
+RC -> ISDB: write I-Score
+end
+RC -> IISS: [mq] query, claim response
+alt claim request
+IISS -> SDB: update
+end
+IISS -> IS: return response
+
+end
+
+@enduml

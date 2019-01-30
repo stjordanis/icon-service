@@ -1,0 +1,46 @@
+@startuml
+title IISS calculation
+
+legend top left
+TX under control
+  set stake, set delegation, claim I-Score, P-Rep register/unregister
+end legend
+
+participant "ICON Service engine" as IS
+participant "IISS engine" as IISS
+database "state DB" as SDB
+database "IISS data" as ID
+participant "Reward Calculator" as RC
+database "I-Score DB" as ISDB
+
+group block invoke
+-> IS: [mq] block_invoke
+IS -> IISS: [call] with TX
+IISS -> IISS: write in memory
+end
+
+group write precommit
+
+-> IS: [mq] write_precommit
+IS -> IISS: [call] commit
+IISS -> SDB: update
+IISS -> ID: write TX, block height
+
+alt every N block
+IISS -> ID: write block height &\nGovernance Variable
+IISS -> RC: [mq] calculation
+end alt every N block
+
+end group write precommit
+
+group I-Score calculation
+
+RC -> ID: read
+RC -> RC: calculate I-Score
+RC -> ISDB: update I-Score
+RC -> IISS: [mq] calculation response
+IISS -> ID: delete
+
+
+end group
+@enduml
