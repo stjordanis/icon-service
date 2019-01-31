@@ -1,10 +1,5 @@
 @startuml
-title IISS calculation
-
-legend top left
-TX under control
-  set stake, set delegation, P-Rep register/unregister
-end legend
+title Calculate I-Score
 
 participant "ICON Service engine" as IS
 participant "IISS engine" as IISS
@@ -17,18 +12,21 @@ group block invoke
 -> IS: [mq] block_invoke
 IS -> IISS: [call] with TX
 IISS -> IISS: write in memory
+IISS -> IS: return response
 end
 
-alt remove precommit
+alt remove precommit state
 
--> IS: [mq] remove_precommit
+-> IS: [mq] remove_precommit_state
 IS -> IISS: [call] rollback
 IISS -> IISS: reset memory
+IISS -> IS: return response
 
-else write precommit
+else write precommit state
 
--> IS: [mq] write_precommit
+-> IS: [mq] write_precommit_state
 IS -> IISS: [call] commit
+IISS -> IISS: update P-Rep rank
 IISS -> SDB: update
 IISS -> ID: write TX, block height
 
@@ -37,13 +35,15 @@ IISS -> ID: write block height &\nGovernance Variable
 IISS -> RC: [mq] calculation
 end alt every N block
 
+IISS -> IS: return response
+
 end group write precommit
 
 group I-Score calculation
 
+RC -> ISDB: update I-Score calculated\n in previous cycle
 RC -> ID: read
 RC -> RC: calculate I-Score
-RC -> ISDB: update I-Score
 RC -> IISS: [mq] calculation response
 IISS -> ID: delete
 

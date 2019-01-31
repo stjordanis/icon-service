@@ -8,9 +8,7 @@ database "IISS data" as ID
 participant "Reward Calculator" as RC
 database "I-Score DB" as ISDB
 
-group block invoke
-
--> IS: [mq] block invoke
+-> IS: [mq] query
 IS -> IISS: [call] query
 IISS -> RC: [mq] query
 RC -> ISDB: read I-Score
@@ -20,8 +18,6 @@ RC -> ISDB: write I-Score
 end
 RC -> IISS: [mq] query response
 IISS -> IS: return response
-
-end
 
 newpage Claim I-Score
 
