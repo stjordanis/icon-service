@@ -84,7 +84,7 @@ class IconScoreMapper(object):
 
     def close(self):
         for _, score_info in self._score_mapper.items():
-            score_info.score.db.close()
+            score_info.score_db.close()
 
     @property
     def score_root_path(self) -> str:
