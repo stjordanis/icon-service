@@ -649,6 +649,8 @@ class IconServiceEngine(ContextContainer):
         context.step_counter = self._step_counter_factory.create(IconScoreContextType.QUERY)
         self._set_revision_to_context(context)
 
+        self._push_context(context)
+
         step_price: int = context.step_counter.step_price
         minimum_step: int = self._step_counter_factory.get_step_cost(StepType.DEFAULT)
 
@@ -664,6 +666,8 @@ class IconServiceEngine(ContextContainer):
         self._validate_score_blacklist(context, params)
         if IconScoreContextUtil.is_service_flag_on(context, IconServiceFlag.DEPLOYER_WHITE_LIST):
             self._validate_deployer_whitelist(context, params)
+
+        self._pop_context()
 
     def _call(self,
               context: 'IconScoreContext',

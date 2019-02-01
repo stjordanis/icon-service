@@ -61,6 +61,13 @@ class IconScoreMapper(object):
         else:
             return address in self._score_mapper
 
+    def __getitem__(self, key: 'Address') -> 'IconScoreInfo':
+        if self._is_lock:
+            with self._lock:
+                return self._score_mapper[key]
+        else:
+            return self._score_mapper[key]
+
     def __setitem__(self, key: 'Address', value: 'IconScoreInfo'):
         if self._is_lock:
             with self._lock:

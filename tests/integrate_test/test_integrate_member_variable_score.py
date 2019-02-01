@@ -48,7 +48,7 @@ class TestIntegrateScores(TestIntegrateBase):
             }
         }
         response = self._query(request)
-        self.assertEqual(response, 'haha')
+        self.assertEqual(response, '__init__')
 
 
 if __name__ == '__main__':

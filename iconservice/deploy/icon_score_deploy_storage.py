@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from . import DeployType, DeployState
 from ..base.address import Address, ICON_EOA_ADDRESS_BYTES_SIZE, ICON_CONTRACT_ADDRESS_BYTES_SIZE
 from ..base.exception import ServerErrorException
-from ..icon_constant import DEFAULT_BYTE_SIZE, REVISION_2
+from ..icon_constant import DEFAULT_BYTE_SIZE, REVISION_2, ZERO_TX_HASH
 from ..iconscore.icon_score_context_util import IconScoreContextUtil
 
 if TYPE_CHECKING:
@@ -219,7 +219,8 @@ class IconScoreDeployStorage(object):
 
         deploy_info = self.get_deploy_info(context, score_address)
         if deploy_info is None:
-            deploy_info = IconScoreDeployInfo(score_address, DeployState.INACTIVE, owner, None, tx_hash)
+            deploy_info = IconScoreDeployInfo(
+                score_address, DeployState.INACTIVE, owner, ZERO_TX_HASH, tx_hash)
             self.put_deploy_info(context, deploy_info)
         else:
             if deploy_info.owner != owner:
@@ -257,7 +258,7 @@ class IconScoreDeployStorage(object):
                                        f'tx_hash({tx_hash}) != next_tx_hash({next_tx_hash})')
 
         deploy_info.current_tx_hash = next_tx_hash
-        deploy_info.next_tx_hash = None
+        deploy_info.next_tx_hash = ZERO_TX_HASH
         deploy_info.deploy_state = DeployState.ACTIVE
         self.put_deploy_info(context, deploy_info)
 
