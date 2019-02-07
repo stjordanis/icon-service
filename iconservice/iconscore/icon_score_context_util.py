@@ -66,7 +66,7 @@ class IconScoreContextUtil(object):
 
         # Create a SCORE instance every time
         # to prevent consensus failure from wrong member variable use in SCORE
-        return score_info.create_score()
+        return score_info.get_score(context.revision)
 
     @staticmethod
     def _get_score_info(context: 'IconScoreContext', address: 'Address') -> Optional['IconScoreBase']:

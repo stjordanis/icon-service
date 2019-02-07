@@ -96,7 +96,7 @@ class IconBuiltinScoreLoader(object):
                 context.icon_score_mapper.load_score_info(score_address, tx_hash)
 
             # Create a score instance from the imported score class.
-            score = score_info.create_score()
+            score = score_info.get_score(context.revision)
 
             # Call on_install() to initialize the score database of the builtin score.
             score.on_install()

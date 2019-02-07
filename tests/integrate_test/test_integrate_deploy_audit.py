@@ -581,7 +581,7 @@ class TestIntegrateDeployAudit(TestIntegrateBase):
                 'auditTxHash': tx_hash2}}
         self._assert_get_score_status(score_addr1, expect_ret)
 
-        # 3. duplicated accpt SCORE : tx_hash1
+        # 3. duplicated accept SCORE : tx_hash1
         raise_exception_start_tag("Invalid status: no next status")
         tx_result = self._accept_score(tx_hash1)
         raise_exception_start_tag("Invalid status: no next status")

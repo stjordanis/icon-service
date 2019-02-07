@@ -251,7 +251,9 @@ class IconScoreDeployEngine(object):
             new_score_mapper: 'IconScoreMapper' = context.new_icon_score_mapper
             new_score_mapper.load_score_info(score_address, next_tx_hash)
             score_info: 'IconScoreInfo' = new_score_mapper[score_address]
-            score: 'IconScoreBase' = score_info.create_score()
+            # score_info.get_score() returns the cached score instance or every time created score instance
+            # according to the revision.
+            score: 'IconScoreBase' = score_info.get_score(context.revision)
 
             deploy_type = tx_params.deploy_type
             if deploy_type == DeployType.INSTALL:

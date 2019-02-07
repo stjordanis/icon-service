@@ -18,6 +18,7 @@ from .icon_score_base import IconScoreBase
 from ..base.address import Address
 from ..base.exception import InvalidParamsException
 from ..database.db import IconScoreDatabase
+from ..icon_constant import REVISION_3
 
 
 class IconScoreInfo(object):
@@ -34,6 +35,7 @@ class IconScoreInfo(object):
         self._tx_hash = tx_hash
         self._score_class = score_class
         self._score_db = score_db
+        self._score = None
 
     @property
     def tx_hash(self) -> bytes:
@@ -47,7 +49,21 @@ class IconScoreInfo(object):
     def score_db(self) -> 'IconScoreDatabase':
         return self._score_db
 
-    def create_score(self) -> 'IconScoreBase':
+    def get_score(self, revision: int) -> 'IconScoreBase':
+        """Provide a score instance according to the revision.
+
+        :param revision:
+        :return:
+        """
+        if revision <= REVISION_3:
+            if self._score is None:
+                self._score = self._create_score()
+
+            return self._score
+
+        return self._create_score()
+
+    def _create_score(self) -> 'IconScoreBase':
         return self._score_class(self._score_db)
 
     @staticmethod
